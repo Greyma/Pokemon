@@ -1,0 +1,293 @@
+{
+  "users": [
+    {
+      "username": "manager1",
+      "password": "manager123",
+      "role": "MANAGER"
+    },
+    {
+      "username": "receptionist1",
+      "password": "reception123",
+      "role": "RECEPTIONIST"
+    },
+    {
+      "username": "manager2",
+      "password": "manager456",
+      "role": "MANAGER"
+    },
+    {
+      "username": "receptionist2",
+      "password": "reception456",
+      "role": "RECEPTIONIST"
+    }
+  ],
+  "rooms": [
+    {
+      "number": "101",
+      "type": "STANDARD",
+      "basePrice": 5000,
+      "status": "LIBRE",
+      "description": "Chambre standard avec vue sur la ville",
+      "capacity": 2,
+      "amenities": ["WiFi", "TV", "Climatisation", "Salle de bain privée"]
+    },
+    {
+      "number": "201",
+      "type": "VIP",
+      "basePrice": 10000,
+      "status": "LIBRE",
+      "description": "Suite VIP avec vue panoramique",
+      "capacity": 4,
+      "amenities": ["WiFi", "TV 4K", "Climatisation", "Salle de bain luxueuse", "Mini-bar", "Service en chambre"]
+    },
+    {
+      "number": "102",
+      "type": "STANDARD",
+      "basePrice": 5000,
+      "status": "LIBRE",
+      "description": "Chambre standard avec vue sur le jardin",
+      "capacity": 2,
+      "amenities": ["WiFi", "TV", "Climatisation", "Salle de bain privée"]
+    },
+    {
+      "number": "301",
+      "type": "SUITE",
+      "basePrice": 15000,
+      "status": "LIBRE",
+      "description": "Suite présidentielle avec jacuzzi",
+      "capacity": 6,
+      "amenities": ["WiFi", "TV 4K", "Climatisation", "Salle de bain luxueuse", "Mini-bar", "Service en chambre", "Jacuzzi", "Terrasse privée"]
+    }
+  ],
+  "reservations": [
+    {
+      "clientName": "Ahmed Benali",
+      "clientType": "PRESENTIEL",
+      "numberOfAdults": 2,
+      "checkInDate": "2024-03-20",
+      "checkOutDate": "2024-03-25",
+      "paymentMethod": "CASH",
+      "paymentStatus": "COMPLETED",
+      "specialRequests": "Lit supplémentaire demandé",
+      "contactPhone": "+213 555 123 456",
+      "contactEmail": "ahmed.benali@email.com"
+    },
+    {
+      "clientName": "Fatima Zohra",
+      "clientType": "ONLINE",
+      "numberOfAdults": 1,
+      "checkInDate": "2024-03-22",
+      "checkOutDate": "2024-03-24",
+      "paymentMethod": "CCP",
+      "paymentStatus": "PENDING",
+      "specialRequests": "Chambre avec vue sur la mer si possible",
+      "contactPhone": "+213 555 789 012",
+      "contactEmail": "fatima.zohra@email.com"
+    },
+    {
+      "clientName": "Mohammed Ali",
+      "clientType": "PRESENTIEL",
+      "numberOfAdults": 3,
+      "checkInDate": "2024-03-25",
+      "checkOutDate": "2024-03-28",
+      "paymentMethod": "CASH",
+      "paymentStatus": "PENDING",
+      "specialRequests": "Service de réveil à 7h",
+      "contactPhone": "+213 555 345 678",
+      "contactEmail": "mohammed.ali@email.com"
+    },
+    {
+      "clientName": "Karim Boudjemaa",
+      "clientType": "ONLINE",
+      "numberOfAdults": 4,
+      "checkInDate": "2024-03-30",
+      "checkOutDate": "2024-04-05",
+      "paymentMethod": "CCP",
+      "paymentStatus": "PENDING",
+      "specialRequests": "Régime alimentaire spécial",
+      "contactPhone": "+213 555 901 234",
+      "contactEmail": "karim.boudjemaa@email.com"
+    }
+  ],
+  "testCases": {
+    "reservations": {
+      "valid": [
+        {
+          "description": "Réservation standard",
+          "data": {
+            "clientName": "Test Client",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 2,
+            "checkInDate": "2024-04-01",
+            "checkOutDate": "2024-04-03",
+            "paymentMethod": "CASH",
+            "paymentStatus": "COMPLETED"
+          }
+        },
+        {
+          "description": "Réservation longue durée",
+          "data": {
+            "clientName": "Test Client 2",
+            "clientType": "ONLINE",
+            "numberOfAdults": 1,
+            "checkInDate": "2024-04-01",
+            "checkOutDate": "2024-04-15",
+            "paymentMethod": "CCP",
+            "paymentStatus": "PENDING"
+          }
+        }
+      ],
+      "invalid": [
+        {
+          "description": "Dates invalides",
+          "data": {
+            "clientName": "Test Client",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 2,
+            "checkInDate": "2024-04-03",
+            "checkOutDate": "2024-04-01",
+            "paymentMethod": "CASH",
+            "paymentStatus": "COMPLETED"
+          },
+          "expectedError": "La date de départ doit être postérieure à la date d'arrivée"
+        },
+        {
+          "description": "Nombre d'adultes invalide",
+          "data": {
+            "clientName": "Test Client",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 0,
+            "checkInDate": "2024-04-01",
+            "checkOutDate": "2024-04-03",
+            "paymentMethod": "CASH",
+            "paymentStatus": "COMPLETED"
+          },
+          "expectedError": "Le nombre d'adultes doit être supérieur à 0"
+        },
+        {
+          "description": "Données manquantes",
+          "data": {
+            "clientName": "Test Client",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 2,
+            "checkInDate": "2024-04-01"
+          },
+          "expectedError": "Données de réservation incomplètes"
+        }
+      ]
+    },
+    "rooms": {
+      "valid": [
+        {
+          "description": "Chambre standard",
+          "data": {
+            "number": "103",
+            "type": "STANDARD",
+            "basePrice": 5000,
+            "status": "LIBRE"
+          }
+        },
+        {
+          "description": "Chambre VIP avec équipements",
+          "data": {
+            "number": "202",
+            "type": "VIP",
+            "basePrice": 10000,
+            "status": "LIBRE",
+            "description": "Suite VIP avec vue panoramique",
+            "capacity": 4,
+            "amenities": ["WiFi", "TV 4K", "Climatisation", "Salle de bain luxueuse"]
+          }
+        }
+      ],
+      "invalid": [
+        {
+          "description": "Prix négatif",
+          "data": {
+            "number": "104",
+            "type": "STANDARD",
+            "basePrice": -1000,
+            "status": "LIBRE"
+          },
+          "expectedError": "Le prix de base doit être positif"
+        },
+        {
+          "description": "Numéro de chambre déjà existant",
+          "data": {
+            "number": "101",
+            "type": "STANDARD",
+            "basePrice": 5000,
+            "status": "LIBRE"
+          },
+          "expectedError": "Ce numéro de chambre existe déjà"
+        },
+        {
+          "description": "Type de chambre invalide",
+          "data": {
+            "number": "105",
+            "type": "INVALID_TYPE",
+            "basePrice": 5000,
+            "status": "LIBRE"
+          },
+          "expectedError": "Type de chambre invalide"
+        },
+        {
+          "description": "Données manquantes",
+          "data": {
+            "number": "106",
+            "type": "STANDARD"
+          },
+          "expectedError": "Données de chambre incomplètes"
+        }
+      ]
+    },
+    "users": {
+      "valid": [
+        {
+          "description": "Création manager",
+          "data": {
+            "username": "manager3",
+            "password": "manager789",
+            "role": "MANAGER"
+          }
+        },
+        {
+          "description": "Création réceptionniste",
+          "data": {
+            "username": "receptionist3",
+            "password": "reception789",
+            "role": "RECEPTIONIST"
+          }
+        }
+      ],
+      "invalid": [
+        {
+          "description": "Nom d'utilisateur déjà existant",
+          "data": {
+            "username": "manager1",
+            "password": "manager123",
+            "role": "MANAGER"
+          },
+          "expectedError": "Ce nom d'utilisateur existe déjà"
+        },
+        {
+          "description": "Rôle invalide",
+          "data": {
+            "username": "testuser",
+            "password": "test123",
+            "role": "INVALID_ROLE"
+          },
+          "expectedError": "Rôle utilisateur invalide"
+        },
+        {
+          "description": "Données manquantes",
+          "data": {
+            "username": "testuser",
+            "role": "MANAGER"
+          },
+          "expectedError": "Données utilisateur incomplètes"
+        }
+      ]
+    }
+  }
+} 

@@ -1,0 +1,17 @@
+const express = require('express');
+const router = express.Router();
+const roomController = require('../controllers/roomController');
+const { authenticateToken, authorizeRole } = require('../middleware/auth');
+
+// Routes protégées par authentification
+router.use(authenticateToken);
+
+// Routes pour les managers
+router.post('/', authorizeRole('MANAGER'), roomController.createRoom);
+router.put('/:id', authorizeRole('MANAGER'), roomController.updateRoom);
+
+// Routes pour tous les utilisateurs authentifiés
+router.get('/', roomController.getAllRooms);
+router.get('/available', roomController.getAvailableRooms);
+
+module.exports = router; 
