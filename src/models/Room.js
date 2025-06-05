@@ -1,12 +1,9 @@
-const { DataTypes } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const Room = sequelize.define('Room', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
-  },
+class Room extends Model {}
+
+Room.init({
   number: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -16,18 +13,38 @@ const Room = sequelize.define('Room', {
     type: DataTypes.ENUM('STANDARD', 'VIP', 'SUITE'),
     allowNull: false
   },
-  basePrice: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: false
+  pricePerAdult: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: {
+      min: 0
+    }
   },
   status: {
-    type: DataTypes.ENUM('LIBRE', 'RESERVEE', 'OCCUPEE', 'MAINTENANCE'),
+    type: DataTypes.ENUM('LIBRE', 'RÉSERVÉE', 'OCCUPÉE'),
     defaultValue: 'LIBRE'
+  },
+  description: {
+    type: DataTypes.TEXT
+  },
+  capacity: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: {
+      min: 1
+    }
+  },
+  amenities: {
+    type: DataTypes.JSON,
+    defaultValue: []
   },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   }
+}, {
+  sequelize,
+  modelName: 'Room'
 });
 
 module.exports = Room; 

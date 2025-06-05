@@ -25,7 +25,7 @@
     {
       "number": "101",
       "type": "STANDARD",
-      "basePrice": 5000,
+      "pricePerAdult": 2500,
       "status": "LIBRE",
       "description": "Chambre standard avec vue sur la ville",
       "capacity": 2,
@@ -34,7 +34,7 @@
     {
       "number": "201",
       "type": "VIP",
-      "basePrice": 10000,
+      "pricePerAdult": 5000,
       "status": "LIBRE",
       "description": "Suite VIP avec vue panoramique",
       "capacity": 4,
@@ -43,7 +43,7 @@
     {
       "number": "102",
       "type": "STANDARD",
-      "basePrice": 5000,
+      "pricePerAdult": 2500,
       "status": "LIBRE",
       "description": "Chambre standard avec vue sur le jardin",
       "capacity": 2,
@@ -52,7 +52,7 @@
     {
       "number": "301",
       "type": "SUITE",
-      "basePrice": 15000,
+      "pricePerAdult": 7500,
       "status": "LIBRE",
       "description": "Suite présidentielle avec jacuzzi",
       "capacity": 6,
@@ -174,6 +174,93 @@
           },
           "expectedError": "Données de réservation incomplètes"
         }
+      ],
+      "pricing": [
+        {
+          "description": "Calcul tarif standard (2 adultes)",
+          "data": {
+            "clientName": "Test Pricing 1",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 2,
+            "checkInDate": "2024-04-01",
+            "checkOutDate": "2024-04-03",
+            "paymentMethod": "CASH",
+            "paymentStatus": "COMPLETED",
+            "roomType": "STANDARD"
+          },
+          "expectedPrice": 10000
+        },
+        {
+          "description": "Calcul tarif VIP (3 adultes)",
+          "data": {
+            "clientName": "Test Pricing 2",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 3,
+            "checkInDate": "2024-04-01",
+            "checkOutDate": "2024-04-03",
+            "paymentMethod": "CASH",
+            "paymentStatus": "COMPLETED",
+            "roomType": "VIP"
+          },
+          "expectedPrice": 30000
+        },
+        {
+          "description": "Calcul tarif VIP (4 adultes)",
+          "data": {
+            "clientName": "Test Pricing 3",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 4,
+            "checkInDate": "2024-04-01",
+            "checkOutDate": "2024-04-05",
+            "paymentMethod": "CASH",
+            "paymentStatus": "COMPLETED",
+            "roomType": "VIP"
+          },
+          "expectedPrice": 80000
+        },
+        {
+          "description": "Calcul tarif Suite (5 adultes)",
+          "data": {
+            "clientName": "Test Pricing 4",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 5,
+            "checkInDate": "2024-04-01",
+            "checkOutDate": "2024-04-05",
+            "paymentMethod": "CASH",
+            "paymentStatus": "COMPLETED",
+            "roomType": "SUITE"
+          },
+          "expectedPrice": 150000
+        }
+      ],
+      "deposit": [
+        {
+          "description": "Paiement avec acompte 50%",
+          "data": {
+            "clientName": "Test Deposit",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 2,
+            "checkInDate": "2024-04-01",
+            "checkOutDate": "2024-04-03",
+            "paymentMethod": "CCP",
+            "paymentStatus": "PENDING",
+            "depositAmount": 8000,
+            "roomType": "STANDARD"
+          }
+        }
+      ],
+      "pdf": [
+        {
+          "description": "Upload justificatif CCP",
+          "data": {
+            "reservationId": null,
+            "file": {
+              "name": "HETIC_Inscription.pdf",
+              "type": "application/pdf",
+              "path": "C:\\Users\\Cherif\\Downloads\\HETIC_Inscription.pdf"
+            }
+          }
+        }
       ]
     },
     "rooms": {
@@ -183,7 +270,7 @@
           "data": {
             "number": "103",
             "type": "STANDARD",
-            "basePrice": 5000,
+            "pricePerAdult": 2500,
             "status": "LIBRE"
           }
         },
@@ -192,7 +279,7 @@
           "data": {
             "number": "202",
             "type": "VIP",
-            "basePrice": 10000,
+            "pricePerAdult": 5000,
             "status": "LIBRE",
             "description": "Suite VIP avec vue panoramique",
             "capacity": 4,
@@ -206,18 +293,20 @@
           "data": {
             "number": "104",
             "type": "STANDARD",
-            "basePrice": -1000,
-            "status": "LIBRE"
+            "pricePerAdult": -1000,
+            "status": "LIBRE",
+            "capacity": 2
           },
-          "expectedError": "Le prix de base doit être positif"
+          "expectedError": "Le prix par adulte doit être positif"
         },
         {
           "description": "Numéro de chambre déjà existant",
           "data": {
             "number": "101",
             "type": "STANDARD",
-            "basePrice": 5000,
-            "status": "LIBRE"
+            "pricePerAdult": 2500,
+            "status": "LIBRE",
+            "capacity": 2
           },
           "expectedError": "Ce numéro de chambre existe déjà"
         },
@@ -226,8 +315,9 @@
           "data": {
             "number": "105",
             "type": "INVALID_TYPE",
-            "basePrice": 5000,
-            "status": "LIBRE"
+            "pricePerAdult": 2500,
+            "status": "LIBRE",
+            "capacity": 2
           },
           "expectedError": "Type de chambre invalide"
         },
@@ -238,6 +328,26 @@
             "type": "STANDARD"
           },
           "expectedError": "Données de chambre incomplètes"
+        }
+      ],
+      "stateTransitions": [
+        {
+          "description": "Transition LIBRE → RÉSERVÉE",
+          "data": {
+            "status": "RÉSERVÉE"
+          }
+        },
+        {
+          "description": "Transition RÉSERVÉE → OCCUPÉE",
+          "data": {
+            "status": "OCCUPÉE"
+          }
+        },
+        {
+          "description": "Transition OCCUPÉE → LIBRE",
+          "data": {
+            "status": "LIBRE"
+          }
         }
       ]
     },
@@ -288,6 +398,72 @@
           "expectedError": "Données utilisateur incomplètes"
         }
       ]
-    }
+    },
+    "statistics": {
+      "revenue": [
+        {
+          "description": "Statistiques de revenus",
+          "period": "2024-03",
+          "expectedData": {
+            "totalRevenue": 0,
+            "revenueByRoomType": {
+              "STANDARD": 0,
+              "VIP": 0,
+              "SUITE": 0
+            },
+            "occupancyRate": 0
+          }
+        }
+      ],
+      "occupancy": [
+        {
+          "description": "Taux de remplissage",
+          "period": "2024-03",
+          "expectedData": {
+            "totalRooms": 4,
+            "occupiedRooms": 0,
+            "occupancyRate": 0
+          }
+        }
+      ],
+      "popularRooms": [
+        {
+          "description": "Chambres les plus demandées",
+          "period": "2024-03",
+          "expectedData": {
+            "byType": {
+              "STANDARD": 0,
+              "VIP": 0,
+              "SUITE": 0
+            }
+          }
+        }
+      ]
+    },
+    "employeeTracking": [
+      {
+        "description": "Suivi des actions employé",
+        "data": {
+          "action": "CREATE_RESERVATION",
+          "details": "Création d'une nouvelle réservation",
+          "userId": null
+        }
+      }
+    ],
+    "maintenance": [
+      {
+        "description": "Activation mode maintenance",
+        "data": {
+          "enabled": true,
+          "message": "Maintenance planifiée"
+        }
+      },
+      {
+        "description": "Désactivation mode maintenance",
+        "data": {
+          "enabled": false
+        }
+      }
+    ]
   }
 } 

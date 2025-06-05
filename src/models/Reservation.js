@@ -40,6 +40,11 @@ const Reservation = sequelize.define('Reservation', {
     allowNull: false,
     defaultValue: 'PENDING'
   },
+  depositAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    defaultValue: 0
+  },
   ccpProofPath: {
     type: DataTypes.STRING,
     allowNull: true

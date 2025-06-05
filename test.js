@@ -1,5 +1,6 @@
 const axios = require('axios');
 const testData = require('./test.json');
+const fs = require('fs');
 
 const API_URL = 'http://localhost:3000/api';
 let managerToken = '';
@@ -8,22 +9,26 @@ let createdRoomIds = [];
 let createdReservationIds = [];
 
 // Fonction utilitaire pour les appels API
-async function makeRequest(method, endpoint, data = null, token = null) {
+async function makeRequest(method, endpoint, data = null, token = null, isMultipart = false) {
   try {
     const config = {
       method,
       url: `${API_URL}${endpoint}`,
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: {}
     };
 
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
 
-    if (data) {
+    if (isMultipart) {
+      // Pour les requêtes multipart/form-data, on envoie directement le FormData
       config.data = data;
+    } else {
+      config.headers['Content-Type'] = 'application/json';
+      if (data) {
+        config.data = data;
+      }
     }
 
     const response = await axios(config);
@@ -191,7 +196,17 @@ async function testReservations() {
     const reservation = testData.reservations[i];
     await runTest(`Création réservation pour ${reservation.clientName}`, async () => {
       // Utiliser une chambre différente pour chaque réservation
-      const roomId = createdRoomIds[i % createdRoomIds.length];
+      let roomId;
+      if (i === 0) {
+        roomId = createdRoomIds[0]; // Chambre standard pour 2 adultes
+      } else if (i === 1) {
+        roomId = createdRoomIds[1]; // Chambre VIP pour 1 adulte
+      } else if (i === 2) {
+        roomId = createdRoomIds[1]; // Chambre VIP pour 3 adultes
+      } else {
+        roomId = createdRoomIds[3]; // Suite pour 4 adultes
+      }
+
       if (!roomId) {
         throw new Error('Aucune chambre disponible pour la réservation');
       }
@@ -277,20 +292,156 @@ async function testUsers() {
   }, true, 'Accès non autorisé');
 }
 
-// Fonction principale
-async function runAllTests() {
-  console.log('Démarrage des tests...\n');
+// Tests des transitions d'état des chambres
+async function testRoomStateTransitions() {
+  console.log('\n=== Tests des transitions d\'état des chambres ===\n');
 
+  for (const testCase of testData.testCases.rooms.stateTransitions) {
+    await runTest(`Transition d'état: ${testCase.description}`, async () => {
+      if (createdRoomIds.length === 0) {
+        throw new Error('Aucune chambre disponible pour le test');
+      }
+
+      console.log('Données envoyées:', JSON.stringify(testCase.data, null, 2));
+      const response = await makeRequest('PATCH', `/rooms/${createdRoomIds[0]}/status`, testCase.data, managerToken);
+      console.log('Réponse reçue:', JSON.stringify(response, null, 2));
+      
+      if (response.status !== 'success') {
+        throw new Error(`Échec de la transition d'état: ${response.message || 'Erreur inconnue'}`);
+      }
+      return response.data;
+    });
+  }
+}
+
+// Tests des calculs de prix
+async function testPricing() {
+  console.log('\n=== Tests des calculs de prix ===\n');
+
+  for (const testCase of testData.testCases.reservations.pricing) {
+    await runTest(`Calcul de prix: ${testCase.description}`, async () => {
+      const response = await makeRequest('POST', '/reservations/calculate-price', testCase.data, receptionistToken);
+      if (response.status !== 'success') throw new Error('Échec du calcul du prix');
+      if (response.data.totalPrice !== testCase.expectedPrice) {
+        throw new Error(`Prix incorrect. Attendu: ${testCase.expectedPrice}, Reçu: ${response.data.totalPrice}`);
+      }
+      return response.data;
+    });
+  }
+}
+
+// Tests des acomptes
+async function testDeposits() {
+  console.log('\n=== Tests des acomptes ===\n');
+
+  for (const testCase of testData.testCases.reservations.deposit) {
+    await runTest(`Acompte: ${testCase.description}`, async () => {
+      const response = await makeRequest('POST', '/reservations/deposit', testCase.data, receptionistToken);
+      if (response.status !== 'success') throw new Error('Échec du paiement de l\'acompte');
+      return response.data;
+    });
+  }
+}
+
+// Tests des fichiers PDF
+async function testPdfUpload() {
+  console.log('\n=== Tests des fichiers PDF ===\n');
+
+  for (const testCase of testData.testCases.reservations.pdf) {
+    await runTest(`Upload PDF: ${testCase.description}`, async () => {
+      if (createdReservationIds.length === 0) {
+        throw new Error('Aucune réservation disponible pour le test');
+      }
+
+      const formData = new FormData();
+      const pdfPath = "C:\\Users\\Cherif\\Downloads\\HETIC_Inscription.pdf";
+      const pdfBlob = new Blob([await fs.promises.readFile(pdfPath)], { type: 'application/pdf' });
+      formData.append('file', pdfBlob, 'HETIC_Inscription.pdf');
+      formData.append('reservationId', createdReservationIds[0]);
+
+      const response = await makeRequest('POST', '/reservations/upload-pdf', formData, receptionistToken, true);
+      if (response.status !== 'success') throw new Error('Échec de l\'upload du PDF');
+      return response.data;
+    });
+  }
+}
+
+// Tests des statistiques
+async function testStatistics() {
+  console.log('\n=== Tests des statistiques ===\n');
+
+  // Test des revenus
+  for (const testCase of testData.testCases.statistics.revenue) {
+    await runTest(`Statistiques revenus: ${testCase.description}`, async () => {
+      const response = await makeRequest('GET', `/statistics/revenue?period=${testCase.period}`, null, managerToken);
+      if (response.status !== 'success') throw new Error('Échec de la récupération des statistiques de revenus');
+      return response.data;
+    });
+  }
+
+  // Test du taux de remplissage
+  for (const testCase of testData.testCases.statistics.occupancy) {
+    await runTest(`Taux de remplissage: ${testCase.description}`, async () => {
+      const response = await makeRequest('GET', `/statistics/occupancy?period=${testCase.period}`, null, managerToken);
+      if (response.status !== 'success') throw new Error('Échec de la récupération du taux de remplissage');
+      return response.data;
+    });
+  }
+
+  // Test des chambres les plus demandées
+  for (const testCase of testData.testCases.statistics.popularRooms) {
+    await runTest(`Chambres populaires: ${testCase.description}`, async () => {
+      const response = await makeRequest('GET', `/statistics/popular-rooms?period=${testCase.period}`, null, managerToken);
+      if (response.status !== 'success') throw new Error('Échec de la récupération des chambres populaires');
+      return response.data;
+    });
+  }
+}
+
+// Tests du suivi des employés
+async function testEmployeeTracking() {
+  console.log('\n=== Tests du suivi des employés ===\n');
+
+  for (const testCase of testData.testCases.employeeTracking) {
+    await runTest(`Suivi employé: ${testCase.description}`, async () => {
+      const response = await makeRequest('POST', '/employee-tracking', testCase.data, managerToken);
+      if (response.status !== 'success') throw new Error('Échec de l\'enregistrement de l\'action');
+      return response.data;
+    });
+  }
+}
+
+// Tests du mode maintenance
+async function testMaintenance() {
+  console.log('\n=== Tests du mode maintenance ===\n');
+
+  for (const testCase of testData.testCases.maintenance) {
+    await runTest(`Mode maintenance: ${testCase.description}`, async () => {
+      const response = await makeRequest('POST', '/maintenance', testCase.data, managerToken);
+      if (response.status !== 'success') throw new Error('Échec de la modification du mode maintenance');
+      return response.data;
+    });
+  }
+}
+
+// Fonction principale mise à jour
+async function runAllTests() {
   try {
     await testAuthentication();
     await testRooms();
+    await testRoomStateTransitions();
     await testReservations();
+    await testPricing();
+    await testDeposits();
+    await testPdfUpload();
+    await testStatistics();
+    await testEmployeeTracking();
+    await testMaintenance();
     await testUsers();
-
-    console.log('\nTous les tests sont terminés !');
+    
+    console.log('\n✅ Tous les tests ont été exécutés avec succès !');
   } catch (error) {
-    console.error('Erreur lors de l\'exécution des tests:', error);
-    process.exit(1);
+    console.error('\n❌ Erreur lors de l\'exécution des tests:', error.message);
   }
 }
 

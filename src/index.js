@@ -2,9 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const sequelize = require('./config/database');
 const authRoutes = require('./routes/auth');
-const roomRoutes = require('./routes/rooms');
-const reservationRoutes = require('./routes/reservations');
+const roomRoutes = require('./routes/roomRoutes');
+const reservationRoutes = require('./routes/reservationRoutes');
 const userRoutes = require('./routes/users');
+const statisticsRoutes = require('./routes/statisticsRoutes');
+const employeeTrackingRoutes = require('./routes/employeeTrackingRoutes');
+const maintenanceRoutes = require('./routes/maintenanceRoutes');
 
 const app = express();
 
@@ -18,6 +21,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/statistics', statisticsRoutes);
+app.use('/api/employee-tracking', employeeTrackingRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

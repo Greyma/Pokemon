@@ -9,6 +9,8 @@ router.use(authenticateToken);
 // Routes pour les managers
 router.post('/', authorizeRole('MANAGER'), roomController.createRoom);
 router.put('/:id', authorizeRole('MANAGER'), roomController.updateRoom);
+router.patch('/:id/status', authorizeRole('MANAGER'), roomController.updateRoomStatus);
+router.patch('/:id/release', authorizeRole('MANAGER'), roomController.releaseRoom);
 
 // Routes pour tous les utilisateurs authentifiés
 router.get('/', roomController.getAllRooms);
