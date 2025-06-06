@@ -15,5 +15,6 @@ router.patch('/:id/release', authorizeRole('MANAGER'), roomController.releaseRoo
 // Routes pour tous les utilisateurs authentifiés
 router.get('/', roomController.getAllRooms);
 router.get('/available', roomController.getAvailableRooms);
+router.get('/:number', roomController.getRoomByNumber);
 
 module.exports = router; 

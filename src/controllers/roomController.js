@@ -257,4 +257,30 @@ exports.updateRoomStatus = async (req, res) => {
       message: error.message || 'Erreur lors de la mise à jour du statut'
     });
   }
+};
+
+// Obtenir une chambre par son numéro
+exports.getRoomByNumber = async (req, res) => {
+  try {
+    const { number } = req.params;
+    const room = await Room.findOne({ where: { number } });
+
+    if (!room) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Chambre non trouvée'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: room
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération de la chambre:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la récupération de la chambre'
+    });
+  }
 }; 
