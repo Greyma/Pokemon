@@ -7,6 +7,9 @@ const fileUpload = require('express-fileupload');
 // Middleware pour l'upload de fichiers
 router.use(fileUpload());
 
+// Route publique pour obtenir les chambres disponibles
+router.get('/available-rooms', reservationController.getAvailableRooms);
+
 // Routes protégées par authentification
 router.use(authenticateToken);
 
