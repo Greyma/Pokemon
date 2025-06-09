@@ -20,14 +20,15 @@ exports.createRoom = async (req, res) => {
     const {
       number,
       type,
-      pricePerAdult,
+      basePrice,
+      extraPersonPrice,
       description,
       capacity,
       amenities
     } = req.body;
 
     // Validation des données requises
-    if (!number || !type || !pricePerAdult || !capacity) {
+    if (!number || !type || !basePrice || !extraPersonPrice || !description || !capacity) {
       return res.status(400).json({
         status: 'error',
         message: 'Données de chambre incomplètes'
@@ -52,11 +53,18 @@ exports.createRoom = async (req, res) => {
       });
     }
 
-    // Validation du prix par adulte
-    if (pricePerAdult < 0) {
+    // Validation des prix
+    if (basePrice < 0) {
       return res.status(400).json({
         status: 'error',
-        message: 'Le prix par adulte doit être positif'
+        message: 'Le prix de base doit être positif'
+      });
+    }
+
+    if (extraPersonPrice < 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Le prix par personne supplémentaire doit être positif'
       });
     }
 
@@ -72,7 +80,8 @@ exports.createRoom = async (req, res) => {
     const room = await Room.create({
       number,
       type,
-      pricePerAdult,
+      basePrice,
+      extraPersonPrice,
       description,
       capacity,
       amenities: amenities || [],
@@ -142,7 +151,8 @@ exports.updateRoom = async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      pricePerAdult,
+      basePrice,
+      extraPersonPrice,
       description,
       capacity,
       amenities,
@@ -157,11 +167,18 @@ exports.updateRoom = async (req, res) => {
       });
     }
 
-    // Validation du prix par adulte si fourni
-    if (pricePerAdult !== undefined && pricePerAdult < 0) {
+    // Validation des prix si fournis
+    if (basePrice !== undefined && basePrice < 0) {
       return res.status(400).json({
         status: 'error',
-        message: 'Le prix par adulte doit être positif'
+        message: 'Le prix de base doit être positif'
+      });
+    }
+
+    if (extraPersonPrice !== undefined && extraPersonPrice < 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Le prix par personne supplémentaire doit être positif'
       });
     }
 
@@ -174,7 +191,8 @@ exports.updateRoom = async (req, res) => {
     }
 
     await room.update({
-      pricePerAdult,
+      basePrice,
+      extraPersonPrice,
       description,
       capacity,
       amenities,

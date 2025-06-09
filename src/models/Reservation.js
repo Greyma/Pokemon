@@ -17,7 +17,10 @@ const Reservation = sequelize.define('Reservation', {
   },
   numberOfAdults: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: false,
+    validate: {
+      min: 1
+    }
   },
   checkInDate: {
     type: DataTypes.DATE,
@@ -40,6 +43,29 @@ const Reservation = sequelize.define('Reservation', {
     allowNull: false,
     defaultValue: 'PENDING'
   },
+  specialRequests: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  contactPhone: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  contactEmail: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      isEmail: true
+    }
+  },
+  guaranteedBy: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'username'
+    }
+  },
   depositAmount: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true,
@@ -55,10 +81,21 @@ const Reservation = sequelize.define('Reservation', {
   },
   createdBy: {
     type: DataTypes.UUID,
-    allowNull: false
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  validate: {
+    checkDates() {
+      if (this.checkInDate >= this.checkOutDate) {
+        throw new Error('La date de départ doit être postérieure à la date d\'arrivée');
+      }
+    }
+  }
 });
 
 module.exports = Reservation; 

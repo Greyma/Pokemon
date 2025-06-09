@@ -8,7 +8,8 @@ const userRoutes = require('./routes/users');
 const statisticsRoutes = require('./routes/statisticsRoutes');
 const employeeTrackingRoutes = require('./routes/employeeTrackingRoutes');
 const maintenanceRoutes = require('./routes/maintenanceRoutes');
-
+const activityRoutes = require('./routes/activityRoutes');
+const financeRoutes = require('./routes/financeRoutes');
 const app = express();
 
 // Middleware
@@ -24,6 +25,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/statistics', statisticsRoutes);
 app.use('/api/employee-tracking', employeeTrackingRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/finance', financeRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -53,4 +56,10 @@ async function startServer() {
   }
 }
 
-startServer(); 
+// Export l'application pour les tests
+module.exports = app;
+
+// Démarrer le serveur seulement si ce fichier est exécuté directement
+if (require.main === module) {
+  startServer();
+} 

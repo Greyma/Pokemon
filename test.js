@@ -1,449 +1,959 @@
 const axios = require('axios');
 const testData = require('./test.json');
-const fs = require('fs');
+const request = require('supertest');
+const app = require('./src/index'); // Correction du chemin d'importation
 
-const API_URL = 'http://localhost:3000/api';
-let managerToken = '';
-let receptionistToken = '';
-let createdRoomIds = [];
-let createdReservationIds = [];
+const API_URL = 'http://localhost:3001/api';
+let authToken = null;
+let createdRoomId = null;
+let createdReservationId = null;
 
-// Fonction utilitaire pour les appels API
-async function makeRequest(method, endpoint, data = null, token = null, isMultipart = false) {
-  try {
-    const config = {
-      method,
-      url: `${API_URL}${endpoint}`,
-      headers: {}
-    };
-
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    if (isMultipart) {
-      // Pour les requêtes multipart/form-data, on envoie directement le FormData
-      config.data = data;
-    } else {
-      config.headers['Content-Type'] = 'application/json';
-      if (data) {
-        config.data = data;
-      }
-    }
-
-    const response = await axios(config);
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      return error.response.data;
-    }
-    throw error;
+// Configuration d'axios
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json'
   }
-}
+});
 
-// Fonction pour exécuter un test
-async function runTest(description, testFn, shouldFail = false, expectedError = null) {
-  console.log(`\nTest: ${description}`);
-  console.log('Attendu:', shouldFail ? 'ÉCHEC' : 'SUCCÈS');
-  
-  try {
-    const result = await testFn();
-    
-    if (shouldFail) {
-      console.log('❌ Test échoué - Succès inattendu');
-      console.log('Résultat obtenu:', JSON.stringify(result, null, 2));
-      console.log('Erreur attendue:', expectedError);
-    } else {
-      console.log('✅ Test réussi');
-      if (result) {
-        console.log('Résultat:', JSON.stringify(result, null, 2));
-      }
-    }
-    
-    return result;
-  } catch (error) {
-    if (!shouldFail) {
-      console.log('❌ Test échoué - Échec inattendu');
-      console.log('Erreur obtenue:', error.message);
-    } else {
-      if (expectedError && error.message !== expectedError) {
-        console.log('⚠️ Test partiellement réussi - Erreur différente de celle attendue');
-        console.log('Erreur obtenue:', error.message);
-        console.log('Erreur attendue:', expectedError);
-      } else {
-        console.log('✅ Test réussi - Échec attendu');
-        console.log('Erreur obtenue:', error.message);
-      }
-    }
-    throw error;
+// Fonction pour ajouter le token d'authentification
+const setAuthToken = (token) => {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
   }
-}
+};
 
 // Tests d'authentification
-async function testAuthentication() {
-  console.log('\n=== Tests d\'authentification ===\n');
-
-  // Test connexion manager
-  await runTest('Connexion Manager', async () => {
-    const response = await makeRequest('POST', '/auth/login', testData.users[0]);
-    if (response.status !== 'success') throw new Error('Échec de la connexion manager');
-    managerToken = response.data.token;
-    return response.data;
-  });
-
-  // Test connexion réceptionniste
-  await runTest('Connexion Réceptionniste', async () => {
-    const response = await makeRequest('POST', '/auth/login', testData.users[1]);
-    if (response.status !== 'success') throw new Error('Échec de la connexion réceptionniste');
-    receptionistToken = response.data.token;
-    return response.data;
-  });
-
-  // Test vérification token
-  await runTest('Vérification Token', async () => {
-    const response = await makeRequest('GET', '/auth/verify', null, managerToken);
-    if (response.status !== 'success') throw new Error('Échec de la vérification du token');
-    return response.data;
-  });
-
-  // Test connexion avec identifiants invalides
-  await runTest('Connexion avec identifiants invalides', async () => {
-    const response = await makeRequest('POST', '/auth/login', {
-      username: 'invalid',
-      password: 'invalid'
+describe('Tests d\'authentification', () => {
+  test('Connexion réussie d\'un réceptionniste', async () => {
+    const response = await api.post('/auth/login', {
+      username: testData.users[1].username,
+      password: testData.users[1].password
     });
-    if (response.status === 'success') throw new Error('La connexion aurait dû échouer');
-    return response;
-  }, true, 'Nom d\'utilisateur ou mot de passe incorrect');
-}
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('token');
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
+
+  test('Connexion échouée avec mauvais mot de passe', async () => {
+    try {
+      await api.post('/auth/login', {
+        username: testData.users[1].username,
+        password: 'mauvais_mot_de_passe'
+      });
+    } catch (error) {
+      expect(error.response.status).toBe(401);
+    }
+  });
+});
 
 // Tests des chambres
-async function testRooms() {
-  console.log('\n=== Tests des chambres ===\n');
-
-  // Test création chambres valides
-  for (const room of testData.rooms) {
-    await runTest(`Création chambre ${room.number}`, async () => {
-      try {
-        const response = await makeRequest('POST', '/rooms', room, managerToken);
-        // Si la chambre existe déjà, on considère le test comme réussi
-        if (response.status === 'error' && response.message.includes('existe déjà')) {
-          console.log('ℹ️ Chambre déjà existante, test considéré comme réussi');
-          return { status: 'success', message: 'Chambre déjà existante' };
-        }
-        if (response.status !== 'success') throw new Error('Échec de la création de la chambre');
-        createdRoomIds.push(response.data.id);
-        return response.data;
-      } catch (error) {
-        // Si l'erreur indique que la chambre existe déjà, on considère le test comme réussi
-        if (error.message && error.message.includes('existe déjà')) {
-          console.log('ℹ️ Chambre déjà existante, test considéré comme réussi');
-          return { status: 'success', message: 'Chambre déjà existante' };
-        }
-        throw error;
-      }
+describe('Tests de gestion des chambres', () => {
+  beforeAll(async () => {
+    // Se connecter en tant que manager pour les opérations sur les chambres
+    const response = await api.post('/auth/login', {
+      username: testData.users[0].username,
+      password: testData.users[0].password
     });
-  }
-
-  // Test cas invalides
-  for (const testCase of testData.testCases.rooms.invalid) {
-    await runTest(`Test invalide: ${testCase.description}`, async () => {
-      const response = await makeRequest('POST', '/rooms', testCase.data, managerToken);
-      if (response.status === 'success') {
-        throw new Error('La création aurait dû échouer');
-      }
-      if (response.message !== testCase.expectedError) {
-        throw new Error(`Message d'erreur incorrect. Attendu: "${testCase.expectedError}", Reçu: "${response.message}"`);
-      }
-      return response;
-    }, true, testCase.expectedError);
-  }
-
-  // Test liste des chambres
-  await runTest('Liste des chambres', async () => {
-    const response = await makeRequest('GET', '/rooms', null, managerToken);
-    if (response.status !== 'success') throw new Error('Échec de la récupération des chambres');
-    return response.data;
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
   });
 
-  // Test chambres disponibles
-  await runTest('Chambres disponibles', async () => {
-    const response = await makeRequest('GET', '/rooms/available', null, managerToken);
-    if (response.status !== 'success') throw new Error('Échec de la récupération des chambres disponibles');
-    return response.data;
+  test('Création d\'une nouvelle chambre', async () => {
+    const newRoom = testData.rooms[0];
+    const response = await api.post('/rooms', newRoom);
+    expect(response.status).toBe(201);
+    expect(response.data.data).toHaveProperty('number', newRoom.number);
+    createdRoomId = response.data.data.id;
   });
 
-  // Test mise à jour d'une chambre
-  if (createdRoomIds.length > 0) {
-    await runTest('Mise à jour d\'une chambre', async () => {
-      const updateData = {
-        basePrice: 6000,
-        description: 'Chambre mise à jour'
-      };
-      const response = await makeRequest('PUT', `/rooms/${createdRoomIds[0]}`, updateData, managerToken);
-      if (response.status !== 'success') throw new Error('Échec de la mise à jour de la chambre');
-      return response.data;
-    });
-  }
-}
+  test('Récupération de toutes les chambres', async () => {
+    const response = await api.get('/rooms');
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.data.data)).toBe(true);
+    expect(response.data.data.length).toBeGreaterThan(0);
+  });
+
+  test('Récupération d\'une chambre spécifique', async () => {
+    const response = await api.get(`/rooms/${testData.rooms[0].number}`);
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('number', testData.rooms[0].number);
+  });
+
+  test('Mise à jour du statut d\'une chambre', async () => {
+    const updateData = {
+      status: 'OCCUPÉE'
+    };
+    const response = await api.patch(`/rooms/${createdRoomId}/status`, updateData);
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('status', 'OCCUPÉE');
+  });
+});
 
 // Tests des réservations
-async function testReservations() {
-  console.log('\n=== Tests des réservations ===\n');
-
-  // Test création réservations valides
-  for (let i = 0; i < testData.reservations.length; i++) {
-    const reservation = testData.reservations[i];
-    await runTest(`Création réservation pour ${reservation.clientName}`, async () => {
-      // Utiliser une chambre différente pour chaque réservation
-      let roomId;
-      if (i === 0) {
-        roomId = createdRoomIds[0]; // Chambre standard pour 2 adultes
-      } else if (i === 1) {
-        roomId = createdRoomIds[1]; // Chambre VIP pour 1 adulte
-      } else if (i === 2) {
-        roomId = createdRoomIds[1]; // Chambre VIP pour 3 adultes
-      } else {
-        roomId = createdRoomIds[3]; // Suite pour 4 adultes
-      }
-
-      if (!roomId) {
-        throw new Error('Aucune chambre disponible pour la réservation');
-      }
-
-      const reservationData = {
-        ...reservation,
-        roomId
-      };
-      const response = await makeRequest('POST', '/reservations', reservationData, receptionistToken);
-      if (response.status !== 'success') throw new Error('Échec de la création de la réservation');
-      createdReservationIds.push(response.data.id);
-
-      // Libérer la chambre après la réservation
-      await makeRequest('PATCH', `/rooms/${roomId}/release`, null, managerToken);
-
-      return response.data;
+describe('Tests de gestion des réservations', () => {
+  beforeAll(async () => {
+    // Se connecter en tant que réceptionniste pour les opérations sur les réservations
+    const response = await api.post('/auth/login', {
+      username: testData.users[1].username,
+      password: testData.users[1].password
     });
-  }
-
-  // Test cas invalides
-  for (const testCase of testData.testCases.reservations.invalid) {
-    await runTest(`Test invalide: ${testCase.description}`, async () => {
-      const response = await makeRequest('POST', '/reservations', testCase.data, receptionistToken);
-      if (response.status === 'success') throw new Error('La création aurait dû échouer');
-      return response;
-    }, true, testCase.expectedError);
-  }
-
-  // Test liste des réservations
-  await runTest('Liste des réservations', async () => {
-    const response = await makeRequest('GET', '/reservations', null, receptionistToken);
-    if (response.status !== 'success') throw new Error('Échec de la récupération des réservations');
-    return response.data;
-  });
-}
-
-// Tests des utilisateurs
-async function testUsers() {
-  console.log('\n=== Tests des utilisateurs ===\n');
-
-  // Test création utilisateurs valides
-  for (const testCase of testData.testCases.users.valid) {
-    await runTest(`Création utilisateur: ${testCase.description}`, async () => {
-      const response = await makeRequest('POST', '/users', testCase.data, managerToken);
-      if (response.status !== 'success') throw new Error('Échec de la création de l\'utilisateur');
-      return response.data;
-    });
-  }
-
-  // Test cas invalides
-  for (const testCase of testData.testCases.users.invalid) {
-    await runTest(`Test invalide: ${testCase.description}`, async () => {
-      const response = await makeRequest('POST', '/users', testCase.data, managerToken);
-      if (response.status === 'success') {
-        throw new Error('La création aurait dû échouer');
-      }
-      if (response.message !== testCase.expectedError) {
-        throw new Error(`Message d'erreur incorrect. Attendu: "${testCase.expectedError}", Reçu: "${response.message}"`);
-      }
-      return response;
-    }, true, testCase.expectedError);
-  }
-
-  // Test liste des utilisateurs
-  await runTest('Liste des utilisateurs', async () => {
-    const response = await makeRequest('GET', '/users', null, managerToken);
-    if (response.status !== 'success') throw new Error('Échec de la récupération des utilisateurs');
-    return response.data;
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
   });
 
-  // Test statistiques utilisateurs
-  await runTest('Statistiques utilisateurs', async () => {
-    const response = await makeRequest('GET', '/users/stats', null, managerToken);
-    if (response.status !== 'success') throw new Error('Échec de la récupération des statistiques');
-    return response.data;
+  test('Création d\'une nouvelle réservation', async () => {
+    const newReservation = {
+      ...testData.reservations[0],
+      roomId: createdRoomId
+    };
+    const response = await api.post('/reservations', newReservation);
+    expect(response.status).toBe(201);
+    expect(response.data.data.reservation).toHaveProperty('clientName', newReservation.clientName);
+    createdReservationId = response.data.data.reservation.id;
   });
 
-  // Test accès non autorisé
-  await runTest('Accès non autorisé aux statistiques', async () => {
-    const response = await makeRequest('GET', '/users/stats', null, receptionistToken);
-    if (response.status === 'success') throw new Error('L\'accès aurait dû être refusé');
-    return response;
-  }, true, 'Accès non autorisé');
-}
+  test('Récupération de toutes les réservations', async () => {
+    const response = await api.get('/reservations');
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.data.data)).toBe(true);
+  });
 
-// Tests des transitions d'état des chambres
-async function testRoomStateTransitions() {
-  console.log('\n=== Tests des transitions d\'état des chambres ===\n');
+  test('Récupération d\'une réservation spécifique', async () => {
+    const response = await api.get(`/reservations/${createdReservationId}`);
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('id', createdReservationId);
+  });
 
-  for (const testCase of testData.testCases.rooms.stateTransitions) {
-    await runTest(`Transition d'état: ${testCase.description}`, async () => {
-      if (createdRoomIds.length === 0) {
-        throw new Error('Aucune chambre disponible pour le test');
+  test('Mise à jour du statut de paiement', async () => {
+    const updateData = {
+      paymentStatus: 'COMPLETED'
+    };
+    const response = await api.patch(`/reservations/${createdReservationId}/payment`, updateData);
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('paymentStatus', 'COMPLETED');
+  });
+
+  test('Calcul du prix d\'une réservation', async () => {
+    const priceData = {
+      checkInDate: testData.reservations[0].checkInDate,
+      checkOutDate: testData.reservations[0].checkOutDate,
+      roomId: createdRoomId,
+      numberOfAdults: testData.reservations[0].numberOfAdults
+    };
+    const response = await api.post('/reservations/calculate-price', priceData);
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('totalPrice');
+    expect(response.data.data).toHaveProperty('priceDetails');
+  });
+
+  test('Récupération des chambres disponibles', async () => {
+    const checkInDate = testData.reservations[0].checkInDate;
+    const checkOutDate = testData.reservations[0].checkOutDate;
+    
+    const response = await api.get('/rooms/available', {
+      params: {
+        checkInDate,
+        checkOutDate,
+        roomType: 'STANDARD'
       }
+    });
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.data.data)).toBe(true);
+    expect(response.data.data[0]).toHaveProperty('number');
+    expect(response.data.data[0]).toHaveProperty('type');
+    expect(response.data.data[0]).toHaveProperty('status');
+  });
+});
 
-      console.log('Données envoyées:', JSON.stringify(testCase.data, null, 2));
-      const response = await makeRequest('PATCH', `/rooms/${createdRoomIds[0]}/status`, testCase.data, managerToken);
-      console.log('Réponse reçue:', JSON.stringify(response, null, 2));
-      
-      if (response.status !== 'success') {
-        throw new Error(`Échec de la transition d'état: ${response.message || 'Erreur inconnue'}`);
+// Tests supplémentaires des réservations
+describe('Tests supplémentaires des réservations', () => {
+  beforeAll(async () => {
+    const response = await api.post('/auth/login', {
+      username: testData.users[1].username,
+      password: testData.users[1].password
+    });
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
+
+  test('Création d\'une réservation garantie par manager', async () => {
+    const newReservation = {
+      ...testData.testCases.reservations.valid[1].data,
+      roomId: createdRoomId
+    };
+    const response = await api.post('/reservations', newReservation);
+    expect(response.status).toBe(201);
+    expect(response.data.data.reservation).toHaveProperty('guaranteedBy', 'manager1');
+  });
+
+  test('Création d\'une réservation avec acompte', async () => {
+    const newReservation = {
+      ...testData.testCases.reservations.valid[2].data,
+      roomId: createdRoomId,
+      depositAmount: 5000,
+      paymentMethod: 'CCP',
+      paymentStatus: 'PENDING',
+      checkInDate: '2025-08-01',
+      checkOutDate: '2025-08-03',
+      totalPrice: 20000
+    };
+    const response = await api.post('/reservations', newReservation);
+    expect(response.status).toBe(201);
+    expect(response.data.data.reservation.depositAmount).toBe(5000);
+  });
+
+  test('Tentative de réservation avec nombre d\'adultes invalide', async () => {
+    const invalidReservation = {
+      roomId: createdRoomId,
+      clientName: 'Test Client',
+      clientType: 'PRESENTIEL',
+      checkInDate: '2025-09-01',
+      checkOutDate: '2025-09-03',
+      paymentMethod: 'CASH',
+      contactPhone: '+213555000005',
+      contactEmail: 'test@email.com',
+      numberOfAdults: 0,
+      specialRequests: 'Test',
+      totalPrice: 20000
+    };
+    try {
+      await api.post('/reservations', invalidReservation);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Le nombre d\'adultes doit être supérieur à 0');
+    }
+  });
+
+  test('Tentative de réservation avec données manquantes', async () => {
+    const invalidReservation = testData.testCases.reservations.invalid[2].data;
+    try {
+      await api.post('/reservations', invalidReservation);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Données de réservation incomplètes');
+    }
+  });
+
+  test('Tentative de réservation avec méthode de paiement invalide', async () => {
+    const invalidReservation = {
+      roomId: createdRoomId,
+      clientName: 'Test Client',
+      clientType: 'PRESENTIEL',
+      numberOfAdults: 2,
+      checkInDate: '2025-10-01',
+      checkOutDate: '2025-10-03',
+      contactPhone: '+213555000006',
+      contactEmail: 'test@email.com',
+      paymentMethod: 'INVALID',
+      specialRequests: 'Test',
+      totalPrice: 20000
+    };
+    try {
+      await api.post('/reservations', invalidReservation);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Méthode de paiement invalide');
+    }
+  });
+
+  test('Upload de justificatif CCP', async () => {
+    const formData = new FormData();
+    formData.append('file', new Blob(['test'], { type: 'application/pdf' }), 'proof.pdf');
+    formData.append('reservationId', createdReservationId);
+
+    const response = await api.post('/reservations/upload-pdf', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
       }
-      return response.data;
     });
-  }
-}
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('fileName');
+  });
+});
 
-// Tests des calculs de prix
-async function testPricing() {
-  console.log('\n=== Tests des calculs de prix ===\n');
-
-  for (const testCase of testData.testCases.reservations.pricing) {
-    await runTest(`Calcul de prix: ${testCase.description}`, async () => {
-      const response = await makeRequest('POST', '/reservations/calculate-price', testCase.data, receptionistToken);
-      if (response.status !== 'success') throw new Error('Échec du calcul du prix');
-      if (response.data.totalPrice !== testCase.expectedPrice) {
-        throw new Error(`Prix incorrect. Attendu: ${testCase.expectedPrice}, Reçu: ${response.data.totalPrice}`);
-      }
-      return response.data;
+// Tests supplémentaires des chambres
+describe('Tests supplémentaires des chambres', () => {
+  beforeAll(async () => {
+    const response = await api.post('/auth/login', {
+      username: testData.users[0].username,
+      password: testData.users[0].password
     });
-  }
-}
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
 
-// Tests des acomptes
-async function testDeposits() {
-  console.log('\n=== Tests des acomptes ===\n');
+  test('Tentative de création de chambre avec prix négatif', async () => {
+    const invalidRoom = {
+      ...testData.testCases.rooms.invalid[0].data,
+      description: 'Chambre test',
+      capacity: 2
+    };
+    try {
+      await api.post('/rooms', invalidRoom);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Le prix de base doit être positif');
+    }
+  });
 
-  for (const testCase of testData.testCases.reservations.deposit) {
-    await runTest(`Acompte: ${testCase.description}`, async () => {
-      const response = await makeRequest('POST', '/reservations/deposit', testCase.data, receptionistToken);
-      if (response.status !== 'success') throw new Error('Échec du paiement de l\'acompte');
-      return response.data;
-    });
-  }
-}
+  test('Tentative de création de chambre avec numéro dupliqué', async () => {
+    const invalidRoom = {
+      ...testData.testCases.rooms.invalid[1].data,
+      description: 'Chambre test',
+      capacity: 2
+    };
+    try {
+      await api.post('/rooms', invalidRoom);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Ce numéro de chambre existe déjà');
+    }
+  });
 
-// Tests des fichiers PDF
-async function testPdfUpload() {
-  console.log('\n=== Tests des fichiers PDF ===\n');
+  test('Tentative de création de chambre avec type invalide', async () => {
+    const invalidRoom = {
+      ...testData.testCases.rooms.invalid[2].data,
+      description: 'Chambre test',
+      capacity: 2
+    };
+    try {
+      await api.post('/rooms', invalidRoom);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Type de chambre invalide');
+    }
+  });
 
-  for (const testCase of testData.testCases.reservations.pdf) {
-    await runTest(`Upload PDF: ${testCase.description}`, async () => {
-      if (createdReservationIds.length === 0) {
-        throw new Error('Aucune réservation disponible pour le test');
-      }
+  test('Tentative de création de chambre avec données manquantes', async () => {
+    const invalidRoom = testData.testCases.rooms.invalid[3].data;
+    try {
+      await api.post('/rooms', invalidRoom);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Données de chambre incomplètes');
+    }
+  });
 
-      const formData = new FormData();
-      const pdfPath = "C:\\Users\\Cherif\\Downloads\\HETIC_Inscription.pdf";
-      const pdfBlob = new Blob([await fs.promises.readFile(pdfPath)], { type: 'application/pdf' });
-      formData.append('file', pdfBlob, 'HETIC_Inscription.pdf');
-      formData.append('reservationId', createdReservationIds[0]);
+  test('Tentative de création de chambre avec prix par personne supplémentaire négatif', async () => {
+    const invalidRoom = {
+      ...testData.testCases.rooms.invalid[4].data,
+      description: 'Chambre test',
+      capacity: 2
+    };
+    try {
+      await api.post('/rooms', invalidRoom);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Le prix par personne supplémentaire doit être positif');
+    }
+  });
 
-      const response = await makeRequest('POST', '/reservations/upload-pdf', formData, receptionistToken, true);
-      if (response.status !== 'success') throw new Error('Échec de l\'upload du PDF');
-      return response.data;
-    });
-  }
-}
+  test('Transition d\'état de la chambre (LIBRE → RÉSERVÉE)', async () => {
+    const updateData = testData.testCases.rooms.stateTransitions[0].data;
+    const response = await api.patch(`/rooms/${createdRoomId}/status`, updateData);
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('status', 'RÉSERVÉE');
+  });
+
+  test('Transition d\'état de la chambre (RÉSERVÉE → OCCUPÉE)', async () => {
+    const updateData = testData.testCases.rooms.stateTransitions[1].data;
+    const response = await api.patch(`/rooms/${createdRoomId}/status`, updateData);
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('status', 'OCCUPÉE');
+  });
+
+  test('Transition d\'état de la chambre (OCCUPÉE → LIBRE)', async () => {
+    const updateData = testData.testCases.rooms.stateTransitions[2].data;
+    const response = await api.patch(`/rooms/${createdRoomId}/status`, updateData);
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('status', 'LIBRE');
+  });
+});
 
 // Tests des statistiques
-async function testStatistics() {
-  console.log('\n=== Tests des statistiques ===\n');
-
-  // Test des revenus
-  for (const testCase of testData.testCases.statistics.revenue) {
-    await runTest(`Statistiques revenus: ${testCase.description}`, async () => {
-      const response = await makeRequest('GET', `/statistics/revenue?period=${testCase.period}`, null, managerToken);
-      if (response.status !== 'success') throw new Error('Échec de la récupération des statistiques de revenus');
-      return response.data;
+describe('Tests des statistiques', () => {
+  beforeAll(async () => {
+    // Se connecter en tant que manager pour les statistiques
+    const response = await api.post('/auth/login', {
+      username: testData.users[0].username,
+      password: testData.users[0].password
     });
-  }
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
 
-  // Test du taux de remplissage
-  for (const testCase of testData.testCases.statistics.occupancy) {
-    await runTest(`Taux de remplissage: ${testCase.description}`, async () => {
-      const response = await makeRequest('GET', `/statistics/occupancy?period=${testCase.period}`, null, managerToken);
-      if (response.status !== 'success') throw new Error('Échec de la récupération du taux de remplissage');
-      return response.data;
+  test('Récupération des statistiques de revenus', async () => {
+    const response = await api.get('/statistics/revenue', {
+      params: { period: '2025-06' }
     });
-  }
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('totalRevenue');
+    expect(response.data.data).toHaveProperty('revenueByRoomType');
+  });
 
-  // Test des chambres les plus demandées
-  for (const testCase of testData.testCases.statistics.popularRooms) {
-    await runTest(`Chambres populaires: ${testCase.description}`, async () => {
-      const response = await makeRequest('GET', `/statistics/popular-rooms?period=${testCase.period}`, null, managerToken);
-      if (response.status !== 'success') throw new Error('Échec de la récupération des chambres populaires');
-      return response.data;
+  test('Récupération des statistiques d\'occupation', async () => {
+    const response = await api.get('/statistics/occupancy', {
+      params: { period: '2025-06' }
     });
-  }
-}
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('occupancyRate');
+    expect(response.data.data).toHaveProperty('totalRooms');
+    expect(response.data.data).toHaveProperty('occupiedRooms');
+  });
+
+  test('Récupération des chambres populaires', async () => {
+    const response = await api.get('/statistics/popular-rooms', {
+      params: { period: '2025-06' }
+    });
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('byType');
+  });
+});
 
 // Tests du suivi des employés
-async function testEmployeeTracking() {
-  console.log('\n=== Tests du suivi des employés ===\n');
-
-  for (const testCase of testData.testCases.employeeTracking) {
-    await runTest(`Suivi employé: ${testCase.description}`, async () => {
-      const response = await makeRequest('POST', '/employee-tracking', testCase.data, managerToken);
-      if (response.status !== 'success') throw new Error('Échec de l\'enregistrement de l\'action');
-      return response.data;
+describe('Tests du suivi des employés', () => {
+  beforeAll(async () => {
+    // Se connecter en tant que manager pour le suivi des employés
+    const response = await api.post('/auth/login', {
+      username: testData.users[0].username,
+      password: testData.users[0].password
     });
-  }
-}
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
 
-// Tests du mode maintenance
-async function testMaintenance() {
-  console.log('\n=== Tests du mode maintenance ===\n');
+  test('Enregistrement d\'une action d\'employé', async () => {
+    const action = testData.testCases.employeeTracking[0].data;
+    const response = await api.post('/employee-tracking', action);
+    expect(response.status).toBe(201);
+  });
+});
 
-  for (const testCase of testData.testCases.maintenance) {
-    await runTest(`Mode maintenance: ${testCase.description}`, async () => {
-      const response = await makeRequest('POST', '/maintenance', testCase.data, managerToken);
-      if (response.status !== 'success') throw new Error('Échec de la modification du mode maintenance');
-      return response.data;
+// Tests de maintenance
+describe('Tests de maintenance', () => {
+  beforeAll(async () => {
+    // Se connecter en tant que manager pour la maintenance
+    const response = await api.post('/auth/login', {
+      username: testData.users[0].username,
+      password: testData.users[0].password
     });
-  }
-}
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
 
-// Fonction principale mise à jour
-async function runAllTests() {
-  try {
-    await testAuthentication();
-    await testRooms();
-    await testRoomStateTransitions();
-    await testReservations();
-    await testPricing();
-    await testDeposits();
-    await testPdfUpload();
-    await testStatistics();
-    await testEmployeeTracking();
-    await testMaintenance();
-    await testUsers();
-    
-    console.log('\n✅ Tous les tests ont été exécutés avec succès !');
-  } catch (error) {
-    console.error('\n❌ Erreur lors de l\'exécution des tests:', error.message);
-  }
-}
+  test('Activation du mode maintenance', async () => {
+    const maintenanceData = testData.testCases.maintenance[0].data;
+    const response = await api.post('/maintenance', maintenanceData);
+    expect(response.status).toBe(200);
+  });
 
-// Exécuter les tests
-runAllTests(); 
+  test('Désactivation du mode maintenance', async () => {
+    const maintenanceData = testData.testCases.maintenance[1].data;
+    const response = await api.post('/maintenance', maintenanceData);
+    expect(response.status).toBe(200);
+  });
+});
+
+// Tests des utilisateurs
+describe('Tests des utilisateurs', () => {
+  beforeAll(async () => {
+    const response = await api.post('/auth/login', {
+      username: testData.users[0].username,
+      password: testData.users[0].password
+    });
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
+
+  test('Création d\'un nouveau manager', async () => {
+    const newManager = testData.testCases.users.valid[0].data;
+    const response = await api.post('/users', newManager);
+    expect(response.status).toBe(201);
+    expect(response.data.data).toHaveProperty('username', newManager.username);
+    expect(response.data.data).toHaveProperty('role', 'MANAGER');
+  });
+
+  test('Création d\'un nouveau réceptionniste', async () => {
+    const newReceptionist = testData.testCases.users.valid[1].data;
+    const response = await api.post('/users', newReceptionist);
+    expect(response.status).toBe(201);
+    expect(response.data.data).toHaveProperty('username', newReceptionist.username);
+    expect(response.data.data).toHaveProperty('role', 'RECEPTIONIST');
+  });
+
+  test('Tentative de création d\'utilisateur avec nom d\'utilisateur dupliqué', async () => {
+    const invalidUser = testData.testCases.users.invalid[0].data;
+    try {
+      await api.post('/users', invalidUser);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Ce nom d\'utilisateur existe déjà');
+    }
+  });
+
+  test('Tentative de création d\'utilisateur avec rôle invalide', async () => {
+    const invalidUser = testData.testCases.users.invalid[1].data;
+    try {
+      await api.post('/users', invalidUser);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Rôle utilisateur invalide');
+    }
+  });
+
+  test('Tentative de création d\'utilisateur avec données manquantes', async () => {
+    const invalidUser = testData.testCases.users.invalid[2].data;
+    try {
+      await api.post('/users', invalidUser);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('Données utilisateur incomplètes');
+    }
+  });
+});
+
+// Test de tarification
+describe('Test de tarification', () => {
+  let token;
+  let standardRoomId;
+  let vipRoomId;
+  let suiteRoomId;
+
+  beforeAll(async () => {
+    // Authentification
+    const loginResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
+    });
+    token = loginResponse.data.data.token;
+    setAuthToken(token);
+
+    // Créer les chambres pour les tests
+    const standardRoomResponse = await api.post('/rooms', {
+      number: '401',
+      type: 'STANDARD',
+      basePrice: 10000,
+      extraPersonPrice: 2000,
+      capacity: 2,
+      description: 'Chambre standard pour tests'
+    });
+    standardRoomId = standardRoomResponse.data.data.id;
+
+    const vipRoomResponse = await api.post('/rooms', {
+      number: '501',
+      type: 'VIP',
+      basePrice: 20000,
+      extraPersonPrice: 3000,
+      capacity: 4,
+      description: 'Chambre VIP pour tests'
+    });
+    vipRoomId = vipRoomResponse.data.data.id;
+
+    const suiteRoomResponse = await api.post('/rooms', {
+      number: '601',
+      type: 'SUITE',
+      basePrice: 30000,
+      extraPersonPrice: 4000,
+      capacity: 6,
+      description: 'Suite pour tests'
+    });
+    suiteRoomId = suiteRoomResponse.data.data.id;
+  });
+
+  test('Calcul du prix pour chambre standard, 2 adultes, 2 nuits', async () => {
+    const response = await api.post('/reservations/calculate-price', {
+      roomId: standardRoomId,
+      numberOfAdults: 2,
+      checkInDate: '2025-07-01',
+      checkOutDate: '2025-07-03'
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data.totalPrice).toBe(20000);
+    expect(response.data.data.priceDetails).toEqual({
+      basePrice: 10000,
+      extraPersonPrice: 2000,
+      nights: 2,
+      capacity: 2,
+      extraAdults: 0,
+      basePrice: 20000,
+      extraPrice: 0
+    });
+  });
+
+  test('Calcul du prix pour chambre standard, 3 adultes, 2 nuits', async () => {
+    const response = await api.post('/reservations/calculate-price', {
+      roomId: standardRoomId,
+      numberOfAdults: 3,
+      checkInDate: '2025-07-01',
+      checkOutDate: '2025-07-03'
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data.totalPrice).toBe(24000);
+    expect(response.data.data.priceDetails).toEqual({
+      basePrice: 10000,
+      extraPersonPrice: 2000,
+      nights: 2,
+      capacity: 2,
+      extraAdults: 1,
+      basePrice: 20000,
+      extraPrice: 4000
+    });
+  });
+
+  test('Calcul du prix pour chambre VIP, 4 adultes, 4 nuits', async () => {
+    const response = await api.post('/reservations/calculate-price', {
+      roomId: vipRoomId,
+      numberOfAdults: 4,
+      checkInDate: '2025-07-01',
+      checkOutDate: '2025-07-05'
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data.totalPrice).toBe(80000);
+    expect(response.data.data.priceDetails).toEqual({
+      basePrice: 20000,
+      extraPersonPrice: 3000,
+      nights: 4,
+      capacity: 4,
+      extraAdults: 0,
+      basePrice: 80000,
+      extraPrice: 0
+    });
+  });
+
+  test('Calcul du prix pour chambre VIP, 6 adultes, 4 nuits', async () => {
+    const response = await api.post('/reservations/calculate-price', {
+      roomId: vipRoomId,
+      numberOfAdults: 6,
+      checkInDate: '2025-07-01',
+      checkOutDate: '2025-07-05'
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data.totalPrice).toBe(104000);
+    expect(response.data.data.priceDetails).toEqual({
+      basePrice: 20000,
+      extraPersonPrice: 3000,
+      nights: 4,
+      capacity: 4,
+      extraAdults: 2,
+      basePrice: 80000,
+      extraPrice: 24000
+    });
+  });
+
+  test('Calcul du prix pour suite, 6 adultes, 3 nuits', async () => {
+    const response = await api.post('/reservations/calculate-price', {
+      roomId: suiteRoomId,
+      numberOfAdults: 6,
+      checkInDate: '2025-07-01',
+      checkOutDate: '2025-07-04'
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data.totalPrice).toBe(90000);
+    expect(response.data.data.priceDetails).toEqual({
+      basePrice: 30000,
+      extraPersonPrice: 4000,
+      nights: 3,
+      capacity: 6,
+      extraAdults: 0,
+      basePrice: 90000,
+      extraPrice: 0
+    });
+  });
+
+  test('Calcul du prix pour suite, 8 adultes, 3 nuits', async () => {
+    const response = await api.post('/reservations/calculate-price', {
+      roomId: suiteRoomId,
+      numberOfAdults: 8,
+      checkInDate: '2025-07-01',
+      checkOutDate: '2025-07-04'
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data.totalPrice).toBe(114000);
+    expect(response.data.data.priceDetails).toEqual({
+      basePrice: 30000,
+      extraPersonPrice: 4000,
+      nights: 3,
+      capacity: 6,
+      extraAdults: 2,
+      basePrice: 90000,
+      extraPrice: 24000
+    });
+  });
+});
+
+// Tests d'acompte
+describe('Tests d\'acompte', () => {
+  let token;
+  let createdRoomId;
+
+  beforeAll(async () => {
+    // Authentification
+    const loginResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
+    });
+    token = loginResponse.data.data.token;
+    setAuthToken(token);
+
+    // Créer une chambre pour les tests
+    const roomResponse = await api.post('/rooms', {
+      number: '701',
+      type: 'STANDARD',
+      basePrice: 1000,
+      extraPersonPrice: 200,
+      capacity: 2,
+      description: 'Chambre standard pour tests d\'acompte'
+    });
+    createdRoomId = roomResponse.data.data.id;
+  });
+
+  test('Calculer l\'acompte pour une chambre standard', async () => {
+    const response = await api.post('/reservations/deposit/calculate', {
+      roomId: createdRoomId,
+      totalPrice: 2000,
+      roomType: 'STANDARD'
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data.depositAmount).toBe(1000); // 50% de 2000
+  });
+
+  test('Créer une réservation avec acompte', async () => {
+    // Se connecter en tant que réceptionniste
+    const loginResponse = await api.post('/auth/login', {
+      username: 'receptionist1',
+      password: 'reception123'
+    });
+    setAuthToken(loginResponse.data.data.token);
+
+    const response = await api.post('/reservations', {
+      clientName: 'Test Client',
+      clientType: 'PRESENTIEL',
+      numberOfAdults: 2,
+      checkInDate: '2025-07-01',
+      checkOutDate: '2025-07-03',
+      paymentMethod: 'CCP',
+      roomId: createdRoomId,
+      contactPhone: '+213555000001',
+      contactEmail: 'test.client@email.com',
+      depositAmount: 1000,
+      totalPrice: 2000
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.data.data.reservation.depositAmount).toBe(1000);
+    expect(response.data.data.reservation.paymentStatus).toBe('PENDING');
+  });
+
+  test('Calculer l\'acompte pour une chambre VIP', async () => {
+    const response = await api.post('/reservations/deposit/calculate', {
+      roomId: createdRoomId,
+      totalPrice: 4000,
+      roomType: 'VIP'
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data.depositAmount).toBe(1200); // 30% de 4000
+  });
+});
+
+// Tests de validation des dates
+describe('Tests de validation des dates', () => {
+  beforeAll(async () => {
+    const response = await api.post('/auth/login', {
+      username: testData.users[1].username,
+      password: testData.users[1].password
+    });
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
+
+  test('Tentative de réservation avec dates invalides', async () => {
+    const invalidReservation = {
+      ...testData.testCases.reservations.invalid[0].data,
+      roomId: createdRoomId,
+      checkInDate: '2025-07-03',
+      checkOutDate: '2025-07-01',
+      clientName: 'Test Client',
+      clientType: 'PRESENTIEL',
+      numberOfAdults: 2,
+      paymentMethod: 'CASH',
+      contactPhone: '+213555000004',
+      contactEmail: 'test@email.com',
+      specialRequests: 'Test',
+      totalPrice: 20000
+    };
+    try {
+      await api.post('/reservations', invalidReservation);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toBe('La date de départ doit être postérieure à la date d\'arrivée');
+    }
+  });
+});
+
+// Gestion des erreurs
+describe('Tests de gestion des erreurs', () => {
+  test('Tentative de création de réservation invalide', async () => {
+    const invalidReservation = {
+      roomId: createdRoomId,
+      checkInDate: '2025-11-01',
+      checkOutDate: '2025-11-03',
+      clientName: 'Test Client',
+      clientType: 'PRESENTIEL',
+      numberOfAdults: 2,
+      paymentMethod: 'CASH',
+      contactPhone: '+213555000007',
+      contactEmail: 'test@email.com',
+      specialRequests: 'Test',
+      totalPrice: 20000
+    };
+    try {
+      await api.post('/reservations', invalidReservation);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data).toHaveProperty('message');
+    }
+  });
+
+  test('Tentative d\'accès non autorisé', async () => {
+    setAuthToken(null);
+    try {
+      await api.get('/rooms');
+    } catch (error) {
+      expect(error.response.status).toBe(401);
+    }
+  });
+
+  test('Tentative d\'accès à une ressource inexistante', async () => {
+    setAuthToken(authToken);
+    try {
+      await api.get('/rooms/999999');
+    } catch (error) {
+      expect(error.response.status).toBe(404);
+    }
+  });
+});
+
+// Tests des activités
+describe('Tests des activités', () => {
+  let token;
+
+  beforeAll(async () => {
+    // Authentification
+    const loginResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
+    });
+    token = loginResponse.data.data.token;
+    setAuthToken(token);
+  });
+
+  test('Génération du PDF pour le restaurant', async () => {
+    const response = await api.post('/activities/pdf', {
+      type: 'restaurant',
+      date: '2025-06-10',
+      data: {
+        reservations: [],
+        totalGuests: 0,
+        period: '2025-06'
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('pdfUrl');
+    expect(response.data.data.pdfUrl).toContain('restaurant_2025-06-10.pdf');
+  });
+
+  test('Génération du PDF pour la piscine', async () => {
+    const response = await api.post('/activities/pdf', {
+      type: 'pool',
+      date: '2025-06-10',
+      data: {
+        reservations: [],
+        totalGuests: 0,
+        period: '2025-06'
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('pdfUrl');
+    expect(response.data.data.pdfUrl).toContain('pool_2025-06-10.pdf');
+  });
+
+  test('Génération du PDF pour la salle de sport', async () => {
+    const response = await api.post('/activities/pdf', {
+      type: 'gym',
+      date: '2025-06-10',
+      data: {
+        reservations: [],
+        totalGuests: 0,
+        period: '2025-06'
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('pdfUrl');
+    expect(response.data.data.pdfUrl).toContain('gym_2025-06-10.pdf');
+  });
+});
+
+// Tests financiers détaillés
+describe('Tests financiers détaillés', () => {
+  beforeAll(async () => {
+    const response = await api.post('/auth/login', {
+      username: testData.users[0].username,
+      password: testData.users[0].password
+    });
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
+
+  test('Suivi quotidien des paiements en espèces', async () => {
+    const data = testData.testCases.finance.daily[0].data;
+    const response = await api.get('/finance/daily', { params: data });
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('total');
+    expect(response.data.data).toHaveProperty('byReservation');
+    expect(response.data.data.total).toBeGreaterThanOrEqual(0);
+  });
+
+  test('Suivi quotidien des paiements CCP', async () => {
+    const data = testData.testCases.finance.daily[1].data;
+    const response = await api.get('/finance/daily', { params: data });
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('total');
+    expect(response.data.data).toHaveProperty('byReservation');
+    expect(response.data.data.total).toBeGreaterThanOrEqual(0);
+  });
+
+  test('Suivi financier par employé', async () => {
+    const data = testData.testCases.finance.tracking[0].data;
+    const response = await api.get('/finance/employee', { params: data });
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('cash');
+    expect(response.data.data).toHaveProperty('ccp');
+    expect(response.data.data).toHaveProperty('total');
+    expect(response.data.data.total).toBeGreaterThanOrEqual(0);
+  });
+
+  test('Tentative de suivi financier pour un employé invalide', async () => {
+    const data = testData.testCases.finance.tracking[1].data;
+    try {
+      await api.get('/finance/employee', { params: data });
+    } catch (error) {
+      expect(error.response.status).toBe(404);
+      expect(error.response.data.message).toBe(testData.testCases.finance.tracking[1].expectedError);
+    }
+  });
+});

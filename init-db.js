@@ -32,28 +32,31 @@ async function initializeDatabase() {
         const rooms = [
           // Chambres Standard
           {
-            number: '101',
+            number: '45185',
             type: 'STANDARD',
             capacity: 2,
-            pricePerAdult: 50,
+            basePrice: 50,
+            extraPersonPrice: 25,
             status: 'LIBRE',
             description: 'Chambre standard confortable avec lit double',
             isActive: true
           },
           {
-            number: '102',
+            number: '45186',
             type: 'STANDARD',
             capacity: 2,
-            pricePerAdult: 50,
+            basePrice: 50,
+            extraPersonPrice: 25,
             status: 'LIBRE',
             description: 'Chambre standard avec vue sur la ville',
             isActive: true
           },
           {
-            number: '103',
+            number: '45188',
             type: 'STANDARD',
             capacity: 3,
-            pricePerAdult: 55,
+            basePrice: 55,
+            extraPersonPrice: 30,
             status: 'LIBRE',
             description: 'Chambre standard familiale avec lit supplémentaire',
             isActive: true
@@ -61,59 +64,13 @@ async function initializeDatabase() {
 
           // Chambres VIP
           {
-            number: '201',
+            number: '45187',
             type: 'VIP',
             capacity: 2,
-            pricePerAdult: 80,
+            basePrice: 80,
+            extraPersonPrice: 40,
             status: 'LIBRE',
             description: 'Suite VIP avec balcon privé',
-            isActive: true
-          },
-          {
-            number: '202',
-            type: 'VIP',
-            capacity: 2,
-            pricePerAdult: 80,
-            status: 'LIBRE',
-            description: 'Suite VIP avec jacuzzi',
-            isActive: true
-          },
-          {
-            number: '203',
-            type: 'VIP',
-            capacity: 4,
-            pricePerAdult: 90,
-            status: 'LIBRE',
-            description: 'Suite VIP familiale avec salon',
-            isActive: true
-          },
-
-          // Suites
-          {
-            number: '301',
-            type: 'SUITE',
-            capacity: 2,
-            pricePerAdult: 120,
-            status: 'LIBRE',
-            description: 'Suite de luxe avec vue panoramique',
-            isActive: true
-          },
-          {
-            number: '302',
-            type: 'SUITE',
-            capacity: 2,
-            pricePerAdult: 120,
-            status: 'LIBRE',
-            description: 'Suite de luxe avec terrasse privée',
-            isActive: true
-          },
-          {
-            number: '303',
-            type: 'SUITE',
-            capacity: 4,
-            pricePerAdult: 150,
-            status: 'LIBRE',
-            description: 'Suite présidentielle avec salon et salle à manger',
             isActive: true
           }
         ];

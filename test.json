@@ -25,7 +25,8 @@
     {
       "number": "101",
       "type": "STANDARD",
-      "pricePerAdult": 2500,
+      "basePrice": 10000,
+      "extraPersonPrice": 2000,
       "status": "LIBRE",
       "description": "Chambre standard avec vue sur la ville",
       "capacity": 2,
@@ -34,7 +35,8 @@
     {
       "number": "201",
       "type": "VIP",
-      "pricePerAdult": 5000,
+      "basePrice": 20000,
+      "extraPersonPrice": 3000,
       "status": "LIBRE",
       "description": "Suite VIP avec vue panoramique",
       "capacity": 4,
@@ -43,7 +45,8 @@
     {
       "number": "102",
       "type": "STANDARD",
-      "pricePerAdult": 2500,
+      "basePrice": 10000,
+      "extraPersonPrice": 2000,
       "status": "LIBRE",
       "description": "Chambre standard avec vue sur le jardin",
       "capacity": 2,
@@ -52,7 +55,8 @@
     {
       "number": "301",
       "type": "SUITE",
-      "pricePerAdult": 7500,
+      "basePrice": 30000,
+      "extraPersonPrice": 4000,
       "status": "LIBRE",
       "description": "Suite présidentielle avec jacuzzi",
       "capacity": 6,
@@ -64,49 +68,53 @@
       "clientName": "Ahmed Benali",
       "clientType": "PRESENTIEL",
       "numberOfAdults": 2,
-      "checkInDate": "2024-03-20",
-      "checkOutDate": "2024-03-25",
+      "checkInDate": "2025-06-08",
+      "checkOutDate": "2025-06-11",
       "paymentMethod": "CASH",
       "paymentStatus": "COMPLETED",
       "specialRequests": "Lit supplémentaire demandé",
-      "contactPhone": "+213 555 123 456",
-      "contactEmail": "ahmed.benali@email.com"
+      "contactPhone": "+213555123456",
+      "contactEmail": "ahmed.benali@email.com",
+      "guaranteedBy": null
     },
     {
       "clientName": "Fatima Zohra",
       "clientType": "ONLINE",
       "numberOfAdults": 1,
-      "checkInDate": "2024-03-22",
-      "checkOutDate": "2024-03-24",
+      "checkInDate": "2025-06-12",
+      "checkOutDate": "2025-06-14",
       "paymentMethod": "CCP",
       "paymentStatus": "PENDING",
       "specialRequests": "Chambre avec vue sur la mer si possible",
-      "contactPhone": "+213 555 789 012",
-      "contactEmail": "fatima.zohra@email.com"
+      "contactPhone": "+213555789012",
+      "contactEmail": "fatima.zohra@email.com",
+      "guaranteedBy": "manager1"
     },
     {
       "clientName": "Mohammed Ali",
       "clientType": "PRESENTIEL",
       "numberOfAdults": 3,
-      "checkInDate": "2024-03-25",
-      "checkOutDate": "2024-03-28",
+      "checkInDate": "2025-06-15",
+      "checkOutDate": "2025-06-18",
       "paymentMethod": "CASH",
       "paymentStatus": "PENDING",
       "specialRequests": "Service de réveil à 7h",
-      "contactPhone": "+213 555 345 678",
-      "contactEmail": "mohammed.ali@email.com"
+      "contactPhone": "+213555345678",
+      "contactEmail": "mohammed.ali@email.com",
+      "guaranteedBy": null
     },
     {
       "clientName": "Karim Boudjemaa",
       "clientType": "ONLINE",
       "numberOfAdults": 4,
-      "checkInDate": "2024-03-30",
-      "checkOutDate": "2024-04-05",
+      "checkInDate": "2025-06-20",
+      "checkOutDate": "2025-06-26",
       "paymentMethod": "CCP",
       "paymentStatus": "PENDING",
       "specialRequests": "Régime alimentaire spécial",
-      "contactPhone": "+213 555 901 234",
-      "contactEmail": "karim.boudjemaa@email.com"
+      "contactPhone": "+213555901234",
+      "contactEmail": "karim.boudjemaa@email.com",
+      "guaranteedBy": null
     }
   ],
   "testCases": {
@@ -118,22 +126,43 @@
             "clientName": "Test Client",
             "clientType": "PRESENTIEL",
             "numberOfAdults": 2,
-            "checkInDate": "2024-04-01",
-            "checkOutDate": "2024-04-03",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-03",
             "paymentMethod": "CASH",
-            "paymentStatus": "COMPLETED"
+            "paymentStatus": "COMPLETED",
+            "contactPhone": "+213555000001",
+            "contactEmail": "test.client@email.com",
+            "guaranteedBy": null
           }
         },
         {
-          "description": "Réservation longue durée",
+          "description": "Réservation garantie par manager",
           "data": {
             "clientName": "Test Client 2",
             "clientType": "ONLINE",
             "numberOfAdults": 1,
-            "checkInDate": "2024-04-01",
-            "checkOutDate": "2024-04-15",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-05",
             "paymentMethod": "CCP",
-            "paymentStatus": "PENDING"
+            "paymentStatus": "PENDING",
+            "contactPhone": "+213555000002",
+            "contactEmail": "test.client2@email.com",
+            "guaranteedBy": "manager1"
+          }
+        },
+        {
+          "description": "Réservation avec acompte",
+          "data": {
+            "clientName": "Test Client 3",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 3,
+            "checkInDate": "2025-07-10",
+            "checkOutDate": "2025-07-12",
+            "paymentMethod": "CCP",
+            "paymentStatus": "PENDING",
+            "contactPhone": "+213555000003",
+            "contactEmail": "test.client3@email.com",
+            "depositAmount": 5000
           }
         }
       ],
@@ -144,10 +173,11 @@
             "clientName": "Test Client",
             "clientType": "PRESENTIEL",
             "numberOfAdults": 2,
-            "checkInDate": "2024-04-03",
-            "checkOutDate": "2024-04-01",
+            "checkInDate": "2025-07-03",
+            "checkOutDate": "2025-07-01",
             "paymentMethod": "CASH",
-            "paymentStatus": "COMPLETED"
+            "paymentStatus": "COMPLETED",
+            "contactPhone": "+213555000004"
           },
           "expectedError": "La date de départ doit être postérieure à la date d'arrivée"
         },
@@ -157,10 +187,11 @@
             "clientName": "Test Client",
             "clientType": "PRESENTIEL",
             "numberOfAdults": 0,
-            "checkInDate": "2024-04-01",
-            "checkOutDate": "2024-04-03",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-03",
             "paymentMethod": "CASH",
-            "paymentStatus": "COMPLETED"
+            "paymentStatus": "COMPLETED",
+            "contactPhone": "+213555000005"
           },
           "expectedError": "Le nombre d'adultes doit être supérieur à 0"
         },
@@ -170,95 +201,207 @@
             "clientName": "Test Client",
             "clientType": "PRESENTIEL",
             "numberOfAdults": 2,
-            "checkInDate": "2024-04-01"
+            "checkInDate": "2025-07-01"
           },
           "expectedError": "Données de réservation incomplètes"
+        },
+        {
+          "description": "Méthode de paiement invalide",
+          "data": {
+            "clientName": "Test Client",
+            "clientType": "PRESENTIEL",
+            "numberOfAdults": 2,
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-03",
+            "paymentMethod": "INVALID",
+            "paymentStatus": "COMPLETED",
+            "contactPhone": "+213555000006"
+          },
+          "expectedError": "Méthode de paiement invalide"
         }
       ],
       "pricing": [
         {
-          "description": "Calcul tarif standard (2 adultes)",
+          "description": "Standard room, 2 adults, 2 nights",
           "data": {
-            "clientName": "Test Pricing 1",
-            "clientType": "PRESENTIEL",
-            "numberOfAdults": 2,
-            "checkInDate": "2024-04-01",
-            "checkOutDate": "2024-04-03",
-            "paymentMethod": "CASH",
-            "paymentStatus": "COMPLETED",
-            "roomType": "STANDARD"
+            "roomType": "STANDARD",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-03",
+            "numberOfAdults": 2
           },
-          "expectedPrice": 10000
+          "expectedPrice": 20000,
+          "priceDetails": {
+            "basePrice": 10000,
+            "extraPrice": 0,
+            "nights": 2,
+            "capacity": 2,
+            "extraAdults": 0
+          }
         },
         {
-          "description": "Calcul tarif VIP (3 adultes)",
+          "description": "Standard room, 3 adults, 2 nights",
           "data": {
-            "clientName": "Test Pricing 2",
-            "clientType": "PRESENTIEL",
-            "numberOfAdults": 3,
-            "checkInDate": "2024-04-01",
-            "checkOutDate": "2024-04-03",
-            "paymentMethod": "CASH",
-            "paymentStatus": "COMPLETED",
-            "roomType": "VIP"
+            "roomType": "STANDARD",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-03",
+            "numberOfAdults": 3
           },
-          "expectedPrice": 30000
+          "expectedPrice": 24000,
+          "priceDetails": {
+            "basePrice": 10000,
+            "extraPrice": 2000,
+            "nights": 2,
+            "capacity": 2,
+            "extraAdults": 1
+          }
         },
         {
-          "description": "Calcul tarif VIP (4 adultes)",
+          "description": "VIP room, 4 adults, 4 nights",
           "data": {
-            "clientName": "Test Pricing 3",
-            "clientType": "PRESENTIEL",
-            "numberOfAdults": 4,
-            "checkInDate": "2024-04-01",
-            "checkOutDate": "2024-04-05",
-            "paymentMethod": "CASH",
-            "paymentStatus": "COMPLETED",
-            "roomType": "VIP"
+            "roomType": "VIP",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-05",
+            "numberOfAdults": 4
           },
-          "expectedPrice": 80000
+          "expectedPrice": 80000,
+          "priceDetails": {
+            "basePrice": 20000,
+            "extraPrice": 0,
+            "nights": 4,
+            "capacity": 4,
+            "extraAdults": 0
+          }
         },
         {
-          "description": "Calcul tarif Suite (5 adultes)",
+          "description": "VIP room, 6 adults, 4 nights",
           "data": {
-            "clientName": "Test Pricing 4",
-            "clientType": "PRESENTIEL",
-            "numberOfAdults": 5,
-            "checkInDate": "2024-04-01",
-            "checkOutDate": "2024-04-05",
-            "paymentMethod": "CASH",
-            "paymentStatus": "COMPLETED",
-            "roomType": "SUITE"
+            "roomType": "VIP",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-05",
+            "numberOfAdults": 6
           },
-          "expectedPrice": 150000
+          "expectedPrice": 92000,
+          "priceDetails": {
+            "basePrice": 2000,
+            "extraPrice": 6000,
+            "nights": 4,
+            "capacity": 4,
+            "extraAdults": 2
+          }
+        },
+        {
+          "description": "Suite, 6 adults, 3 nights",
+          "data": {
+            "roomType": "SUITE",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-04",
+            "numberOfAdults": 6
+          },
+          "expectedPrice": 90000,
+          "priceDetails": {
+            "basePrice": 30000,
+            "extraPrice": 0,
+            "nights": 3,
+            "capacity": 6,
+            "extraAdults": 0
+          }
+        },
+        {
+          "description": "Suite, 8 adults, 3 nights",
+          "data": {
+            "roomType": "SUITE",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-04",
+            "numberOfAdults": 8
+          },
+          "expectedPrice": 108000,
+          "priceDetails": {
+            "basePrice": 3000,
+            "extraPrice": 8000,
+            "nights": 3,
+            "capacity": 6,
+            "extraAdults": 2
+          }
         }
       ],
       "deposit": [
         {
-          "description": "Paiement avec acompte 50%",
+          "description": "Acompte 50% pour Standard room",
           "data": {
             "clientName": "Test Deposit",
             "clientType": "PRESENTIEL",
             "numberOfAdults": 2,
-            "checkInDate": "2024-04-01",
-            "checkOutDate": "2024-04-03",
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-03",
             "paymentMethod": "CCP",
             "paymentStatus": "PENDING",
-            "depositAmount": 8000,
+            "depositAmount": 10000,
             "roomType": "STANDARD"
+          }
+        },
+        {
+          "description": "Acompte 30% pour VIP room",
+          "data": {
+            "clientName": "Test Deposit 2",
+            "clientType": "ONLINE",
+            "numberOfAdults": 4,
+            "checkInDate": "2025-07-01",
+            "checkOutDate": "2025-07-04",
+            "paymentMethod": "CCP",
+            "paymentStatus": "PENDING",
+            "depositAmount": 18000,
+            "roomType": "VIP"
           }
         }
       ],
       "pdf": [
         {
-          "description": "Upload justificatif CCP",
+          "description": "Valid CCP proof upload",
           "data": {
             "reservationId": null,
             "file": {
-              "name": "HETIC_Inscription.pdf",
-              "type": "application/pdf",
-              "path": "C:\\Users\\Cherif\\Downloads\\HETIC_Inscription.pdf"
+              "name": "proof.pdf",
+              "type": "application/pdf"
             }
+          }
+        },
+        {
+          "description": "Invalid file type upload",
+          "data": {
+            "reservationId": null,
+            "file": {
+              "name": "proof.jpg",
+              "type": "image/jpeg"
+            }
+          },
+          "expectedError": "Seuls les fichiers PDF sont acceptés"
+        }
+      ],
+      "paymentHistory": [
+        {
+          "description": "Retrieve payment history",
+          "data": {
+            "reservationId": null
+          },
+          "expectedData": {
+            "payments": [
+              {
+                "amount": 10000,
+                "method": "CCP",
+                "date": "2025-07-01"
+              }
+            ]
+          }
+        }
+      ],
+      "invoice": [
+        {
+          "description": "Generate reservation invoice",
+          "data": {
+            "reservationId": null
+          },
+          "expectedData": {
+            "invoiceUrl": "http://localhost:3001/invoices/reservation_1.pdf"
           }
         }
       ]
@@ -266,20 +409,25 @@
     "rooms": {
       "valid": [
         {
-          "description": "Chambre standard",
+          "description": "Standard room",
           "data": {
             "number": "103",
             "type": "STANDARD",
-            "pricePerAdult": 2500,
-            "status": "LIBRE"
+            "basePrice": 10000,
+            "extraPersonPrice": 2000,
+            "status": "LIBRE",
+            "capacity": 2,
+            "description": "Chambre standard avec vue sur le jardin",
+            "amenities": ["WiFi", "TV", "Climatisation", "Salle de bain privée"]
           }
         },
         {
-          "description": "Chambre VIP avec équipements",
+          "description": "VIP room",
           "data": {
             "number": "202",
             "type": "VIP",
-            "pricePerAdult": 5000,
+            "basePrice": 20000,
+            "extraPersonPrice": 3000,
             "status": "LIBRE",
             "description": "Suite VIP avec vue panoramique",
             "capacity": 4,
@@ -289,62 +437,77 @@
       ],
       "invalid": [
         {
-          "description": "Prix négatif",
+          "description": "Negative base price",
           "data": {
             "number": "104",
             "type": "STANDARD",
-            "pricePerAdult": -1000,
+            "basePrice": -1000,
+            "extraPersonPrice": 2000,
             "status": "LIBRE",
             "capacity": 2
           },
-          "expectedError": "Le prix par adulte doit être positif"
+          "expectedError": "Le prix de base doit être positif"
         },
         {
-          "description": "Numéro de chambre déjà existant",
+          "description": "Duplicate room number",
           "data": {
             "number": "101",
             "type": "STANDARD",
-            "pricePerAdult": 2500,
+            "basePrice": 10000,
+            "extraPersonPrice": 2000,
             "status": "LIBRE",
             "capacity": 2
           },
           "expectedError": "Ce numéro de chambre existe déjà"
         },
         {
-          "description": "Type de chambre invalide",
+          "description": "Invalid room type",
           "data": {
             "number": "105",
             "type": "INVALID_TYPE",
-            "pricePerAdult": 2500,
+            "basePrice": 10000,
+            "extraPersonPrice": 2000,
             "status": "LIBRE",
             "capacity": 2
           },
           "expectedError": "Type de chambre invalide"
         },
         {
-          "description": "Données manquantes",
+          "description": "Missing data",
           "data": {
             "number": "106",
             "type": "STANDARD"
           },
           "expectedError": "Données de chambre incomplètes"
+        },
+        {
+          "description": "Negative extra person price",
+          "data": {
+            "number": "107",
+            "type": "STANDARD",
+            "basePrice": 10000,
+            "extraPersonPrice": -2000,
+            "status": "LIBRE",
+            "capacity": 2
+          },
+          "expectedError": "Le prix par personne supplémentaire doit être positif"
         }
       ],
       "stateTransitions": [
         {
-          "description": "Transition LIBRE → RÉSERVÉE",
+          "description": "LIBRE to RÉSERVÉE",
           "data": {
             "status": "RÉSERVÉE"
           }
         },
         {
-          "description": "Transition RÉSERVÉE → OCCUPÉE",
+          "description": "RÉSERVÉE to OCCUPÉE",
           "data": {
             "status": "OCCUPÉE"
           }
         },
         {
-          "description": "Transition OCCUPÉE → LIBRE",
+          "description": "OCCUPÉE to LIBRE",
           "data": {
             "status": "LIBRE"
           }
@@ -354,7 +517,7 @@
     "users": {
       "valid": [
         {
-          "description": "Création manager",
+          "description": "Create manager",
           "data": {
             "username": "manager3",
             "password": "manager789",
@@ -362,7 +525,7 @@
           }
         },
         {
-          "description": "Création réceptionniste",
+          "description": "Create receptionist",
           "data": {
             "username": "receptionist3",
             "password": "reception789",
@@ -372,7 +535,7 @@
       ],
       "invalid": [
         {
-          "description": "Nom d'utilisateur déjà existant",
+          "description": "Duplicate username",
           "data": {
             "username": "manager1",
             "password": "manager123",
@@ -381,7 +544,7 @@
           "expectedError": "Ce nom d'utilisateur existe déjà"
         },
         {
-          "description": "Rôle invalide",
+          "description": "Invalid role",
           "data": {
             "username": "testuser",
             "password": "test123",
@@ -390,7 +553,7 @@
           "expectedError": "Rôle utilisateur invalide"
         },
         {
-          "description": "Données manquantes",
+          "description": "Missing data",
           "data": {
             "username": "testuser",
             "role": "MANAGER"
@@ -402,37 +565,43 @@
     "statistics": {
       "revenue": [
         {
-          "description": "Statistiques de revenus",
-          "period": "2024-03",
+          "description": "Revenue for June 2025",
+          "period": "2025-06",
           "expectedData": {
-            "totalRevenue": 0,
+            "totalRevenue": 10000,
             "revenueByRoomType": {
-              "STANDARD": 0,
+              "STANDARD": 10000,
               "VIP": 0,
               "SUITE": 0
             },
-            "occupancyRate": 0
+            "revenueByPaymentMethod": {
+              "CASH": 10000,
+              "CCP": 0
+            }
           }
         }
       ],
       "occupancy": [
         {
-          "description": "Taux de remplissage",
-          "period": "2024-03",
+          "description": "Occupancy for June 2025",
+          "period": "2025-06",
           "expectedData": {
             "totalRooms": 4,
-            "occupiedRooms": 0,
-            "occupancyRate": 0
+            "occupiedRooms": 1,
+            "freeRooms": 3,
+            "reservedRooms": 0,
+            "totalClients": 2,
+            "occupancyRate": 0.25
           }
         }
       ],
       "popularRooms": [
         {
-          "description": "Chambres les plus demandées",
-          "period": "2024-03",
+          "description": "Popular rooms for June 2025",
+          "period": "2025-06",
           "expectedData": {
             "byType": {
-              "STANDARD": 0,
+              "STANDARD": 1,
               "VIP": 0,
               "SUITE": 0
             }
@@ -441,29 +610,148 @@
       ]
     },
     "employeeTracking": [
-      {
-        "description": "Suivi des actions employé",
-        "data": {
-          "action": "CREATE_RESERVATION",
-          "details": "Création d'une nouvelle réservation",
-          "userId": null
+        {
+          "description": "Track reservation creation",
+          "data": {
+            "action": "CREATE_RESERVATION",
+            "details": "Created reservation for Ahmed Benali",
+            "userId": null
+          }
+        },
+        {
+          "description": "Track payment update",
+          "data": {
+            "action": "UPDATE_PAYMENT",
+            "details": "Added payment of 5000 DA for reservation",
+            "userId": null
+          }
         }
-      }
-    ],
-    "maintenance": [
-      {
-        "description": "Activation mode maintenance",
-        "data": {
-          "enabled": true,
-          "message": "Maintenance planifiée"
+      ],
+      "maintenance": [
+        {
+          "description": "Enable maintenance mode",
+          "data": {
+            "enabled": true,
+            "message": "Maintenance planifiée"
+          }
+        },
+        {
+          "description": "Disable maintenance mode",
+          "data": {
+            "enabled": false
+          }
+        },
+        {
+          "description": "Invalid maintenance data",
+          "data": {
+            "enabled": true
+          },
+          "expectedError": "Message de maintenance requis"
         }
+      ],
+      "activities": {
+        "pdf": [
+          {
+            "description": "Generate restaurant PDF",
+            "data": {
+              "type": "restaurant",
+              "date": "2025-06-10"
+            },
+            "expectedData": {
+              "pdfUrl": "http://localhost:3001/activities/restaurant_2025-06-10.pdf"
+            }
+          },
+          {
+            "description": "Generate pool PDF",
+            "data": {
+              "type": "pool",
+              "date": "2025-06-10"
+            },
+            "expectedData": {
+              "pdfUrl": "http://localhost:3001/activities/pool_2025-06-10.pdf"
+            }
+          },
+          {
+            "description": "Generate gym PDF",
+            "data": {
+              "type": "gym",
+              "date": "2025-06-10"
+            },
+            "expectedData": {
+              "pdfUrl": "http://localhost:3001/activities/gym_2025-06-10.pdf"
+            }
+          }
+        ]
       },
-      {
-        "description": "Désactivation mode maintenance",
-        "data": {
-          "enabled": false
-        }
+      "finance": {
+        "daily": [
+          {
+            "description": "Daily cash tracking",
+            "data": {
+              "date": "2025-06-10",
+              "method": "CASH"
+            },
+            "expectedData": {
+              "total": 10000,
+              "byReservation": [
+                {
+                  "reservationId": null,
+                  "amount": 10000
+                }
+              ]
+            }
+          },
+          {
+            "description": "Daily CCP tracking",
+            "data": {
+              "date": "2025-06-10",
+              "method": "CCP"
+            },
+            "expectedData": {
+              "total": 0,
+              "byReservation": []
+            }
+          }
+        ],
+        "tracking": [
+          {
+            "description": "Financial tracking for receptionist1",
+            "data": {
+              "username": "receptionist1",
+              "date": "2025-06-10"
+            },
+            "expectedData": {
+              "cash": 10000,
+              "ccp": 0,
+              "total": 10000
+            }
+          },
+          {
+            "description": "Invalid user for financial tracking",
+            "data": {
+              "username": "invalid_user",
+              "date": "2025-06-10"
+            },
+            "expectedError": "Utilisateur non trouvé"
+          }
+        ]
+      },
+      "occupancy": {
+        "stats": [
+          {
+            "description": "Occupancy statistics for June 2025",
+            "data": {
+              "date": "2025-06-10"
+            },
+            "expectedData": {
+              "totalClients": 2,
+              "freeRooms": 3,
+              "reservedRooms": 0,
+              "occupiedRooms": 1,
+              "occupancyRate": 0.25
+            }
+          }
+        ]
       }
-    ]
+    }
   }
-} 
