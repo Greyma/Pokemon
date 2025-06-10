@@ -28,21 +28,17 @@ router.use((req, res, next) => {
   next();
 });
 
-// Route publique pour obtenir les chambres disponibles
-router.get('/available-rooms', reservationController.getAvailableRooms);
-
 // Routes protégées par authentification
 router.use(authenticateToken);
 
-// Routes pour les réceptionnistes
-router.post('/', authorizeRole('RECEPTIONIST'), reservationController.createReservation);
-router.post('/calculate-price', authorizeRole(['MANAGER', 'RECEPTIONIST']), reservationController.calculatePrice);
-router.post('/deposit', authorizeRole(['MANAGER', 'RECEPTIONIST']), reservationController.handleDeposit);
-router.post('/upload-pdf', authorizeRole('RECEPTIONIST'), reservationController.uploadPdf);
-router.patch('/:id/payment', authorizeRole('RECEPTIONIST'), reservationController.updatePaymentStatus);
-
-// Routes pour tous les utilisateurs authentifiés
-router.get('/', reservationController.getAllReservations);
-router.get('/:id', reservationController.getReservationById);
+// Routes pour les réceptionnistes et les managers
+router.get('/available-rooms', authorizeRole(['RECEPTIONIST', 'MANAGER']), reservationController.getAvailableRooms);
+router.post('/calculate-price', authorizeRole(['RECEPTIONIST', 'MANAGER']), reservationController.calculatePrice);
+router.get('/', authorizeRole(['RECEPTIONIST', 'MANAGER']), reservationController.getAllReservations);
+router.post('/', authorizeRole(['RECEPTIONIST', 'MANAGER']), reservationController.createReservation);
+router.get('/:id', authorizeRole(['RECEPTIONIST', 'MANAGER']), reservationController.getReservationById);
+router.patch('/:id/payment', authorizeRole(['RECEPTIONIST', 'MANAGER']), reservationController.updatePaymentStatus);
+router.post('/:id/invoice', authorizeRole(['RECEPTIONIST', 'MANAGER']), reservationController.generateInvoice);
+router.get('/:id/payment-history', authorizeRole(['RECEPTIONIST', 'MANAGER']), reservationController.getPaymentHistory);
 
 module.exports = router; 

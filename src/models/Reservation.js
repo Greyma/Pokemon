@@ -35,11 +35,11 @@ const Reservation = sequelize.define('Reservation', {
     allowNull: false
   },
   paymentMethod: {
-    type: DataTypes.ENUM('CASH', 'CCP'),
+    type: DataTypes.ENUM('CASH', 'CREDIT_CARD', 'BANK_TRANSFER'),
     allowNull: false
   },
   paymentStatus: {
-    type: DataTypes.ENUM('PENDING', 'COMPLETED', 'CANCELLED'),
+    type: DataTypes.ENUM('PENDING', 'DEPOSIT_PAID', 'PAID', 'CANCELLED'),
     allowNull: false,
     defaultValue: 'PENDING'
   },
@@ -86,6 +86,9 @@ const Reservation = sequelize.define('Reservation', {
       model: 'Users',
       key: 'id'
     }
+  },
+  invoiceUrl: {
+    type: DataTypes.STRING
   }
 }, {
   timestamps: true,

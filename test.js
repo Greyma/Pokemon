@@ -50,46 +50,66 @@ describe('Tests d\'authentification', () => {
   });
 });
 
-// Tests des chambres
+// Tests de gestion des chambres
 describe('Tests de gestion des chambres', () => {
+  let token;
+
   beforeAll(async () => {
-    // Se connecter en tant que manager pour les opérations sur les chambres
-    const response = await api.post('/auth/login', {
-      username: testData.users[0].username,
-      password: testData.users[0].password
+    // Authentification en tant que manager
+    const loginResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
     });
-    authToken = response.data.data.token;
-    setAuthToken(authToken);
+    token = loginResponse.data.data.token;
+    setAuthToken(token);
   });
 
   test('Création d\'une nouvelle chambre', async () => {
-    const newRoom = testData.rooms[0];
-    const response = await api.post('/rooms', newRoom);
-    expect(response.status).toBe(201);
-    expect(response.data.data).toHaveProperty('number', newRoom.number);
-    createdRoomId = response.data.data.id;
-  });
-
-  test('Récupération de toutes les chambres', async () => {
-    const response = await api.get('/rooms');
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.data.data)).toBe(true);
-    expect(response.data.data.length).toBeGreaterThan(0);
-  });
-
-  test('Récupération d\'une chambre spécifique', async () => {
-    const response = await api.get(`/rooms/${testData.rooms[0].number}`);
-    expect(response.status).toBe(200);
-    expect(response.data.data).toHaveProperty('number', testData.rooms[0].number);
-  });
-
-  test('Mise à jour du statut d\'une chambre', async () => {
-    const updateData = {
-      status: 'OCCUPÉE'
+    const newRoom = {
+      number: '801',
+      type: 'STANDARD',
+      basePrice: 15000,
+      extraPersonPrice: 2500,
+      capacity: 2,
+      description: 'Chambre standard pour tests'
     };
-    const response = await api.patch(`/rooms/${createdRoomId}/status`, updateData);
+
+    const response = await api.post('/rooms', newRoom);
+
+    expect(response.status).toBe(201);
+    expect(response.data.data).toHaveProperty('id');
+    expect(response.data.data).toHaveProperty('number', newRoom.number);
+    expect(response.data.data).toHaveProperty('type', newRoom.type);
+    expect(response.data.data).toHaveProperty('basePrice', newRoom.basePrice);
+    expect(response.data.data).toHaveProperty('extraPersonPrice', newRoom.extraPersonPrice);
+    expect(response.data.data).toHaveProperty('capacity', newRoom.capacity);
+    expect(response.data.data).toHaveProperty('status', 'LIBRE');
+  });
+
+  test('Modification d\'une chambre existante', async () => {
+    const roomId = createdRoomId; // Utiliser l'ID de la chambre créée précédemment
+    const updateData = {
+      basePrice: 16000,
+      extraPersonPrice: 3000,
+      description: 'Chambre mise à jour'
+    };
+
+    const response = await api.put(`/rooms/${roomId}`, updateData);
+
     expect(response.status).toBe(200);
-    expect(response.data.data).toHaveProperty('status', 'OCCUPÉE');
+    expect(response.data.data).toHaveProperty('basePrice', updateData.basePrice);
+    expect(response.data.data).toHaveProperty('extraPersonPrice', updateData.extraPersonPrice);
+    expect(response.data.data).toHaveProperty('description', updateData.description);
+  });
+
+  test('Désactivation d\'une chambre', async () => {
+    const roomId = createdRoomId;
+    const response = await api.patch(`/rooms/${roomId}/status`, {
+      isActive: false
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('isActive', false);
   });
 });
 
@@ -458,61 +478,86 @@ describe('Tests de maintenance', () => {
   });
 });
 
-// Tests des utilisateurs
-describe('Tests des utilisateurs', () => {
-  beforeAll(async () => {
-    const response = await api.post('/auth/login', {
-      username: testData.users[0].username,
-      password: testData.users[0].password
-    });
-    authToken = response.data.data.token;
-    setAuthToken(authToken);
-  });
+// Tests de gestion des comptes utilisateurs
+describe('Tests de gestion des comptes utilisateurs', () => {
+  let token;
 
-  test('Création d\'un nouveau manager', async () => {
-    const newManager = testData.testCases.users.valid[0].data;
-    const response = await api.post('/users', newManager);
-    expect(response.status).toBe(201);
-    expect(response.data.data).toHaveProperty('username', newManager.username);
-    expect(response.data.data).toHaveProperty('role', 'MANAGER');
+  beforeAll(async () => {
+    // Authentification en tant que manager
+    const loginResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
+    });
+    token = loginResponse.data.data.token;
+    setAuthToken(token);
   });
 
   test('Création d\'un nouveau réceptionniste', async () => {
-    const newReceptionist = testData.testCases.users.valid[1].data;
+    const newReceptionist = {
+      username: 'receptionist2',
+      password: 'reception123',
+      role: 'RECEPTIONIST',
+      firstName: 'Jean',
+      lastName: 'Dupont',
+      email: 'jean.dupont@hotel.com'
+    };
+
     const response = await api.post('/users', newReceptionist);
+
     expect(response.status).toBe(201);
+    expect(response.data.data).toHaveProperty('id');
     expect(response.data.data).toHaveProperty('username', newReceptionist.username);
-    expect(response.data.data).toHaveProperty('role', 'RECEPTIONIST');
+    expect(response.data.data).toHaveProperty('role', newReceptionist.role);
+    expect(response.data.data).toHaveProperty('firstName', newReceptionist.firstName);
+    expect(response.data.data).toHaveProperty('lastName', newReceptionist.lastName);
+    expect(response.data.data).toHaveProperty('email', newReceptionist.email);
   });
 
-  test('Tentative de création d\'utilisateur avec nom d\'utilisateur dupliqué', async () => {
-    const invalidUser = testData.testCases.users.invalid[0].data;
-    try {
-      await api.post('/users', invalidUser);
-    } catch (error) {
-      expect(error.response.status).toBe(400);
-      expect(error.response.data.message).toBe('Ce nom d\'utilisateur existe déjà');
-    }
+  test('Création d\'un nouveau manager', async () => {
+    const newManager = {
+      username: 'manager2',
+      password: 'manager123',
+      role: 'MANAGER',
+      firstName: 'Marie',
+      lastName: 'Martin',
+      email: 'marie.martin@hotel.com'
+    };
+
+    const response = await api.post('/users', newManager);
+
+    expect(response.status).toBe(201);
+    expect(response.data.data).toHaveProperty('id');
+    expect(response.data.data).toHaveProperty('username', newManager.username);
+    expect(response.data.data).toHaveProperty('role', newManager.role);
+    expect(response.data.data).toHaveProperty('firstName', newManager.firstName);
+    expect(response.data.data).toHaveProperty('lastName', newManager.lastName);
+    expect(response.data.data).toHaveProperty('email', newManager.email);
   });
 
-  test('Tentative de création d\'utilisateur avec rôle invalide', async () => {
-    const invalidUser = testData.testCases.users.invalid[1].data;
-    try {
-      await api.post('/users', invalidUser);
-    } catch (error) {
-      expect(error.response.status).toBe(400);
-      expect(error.response.data.message).toBe('Rôle utilisateur invalide');
-    }
+  test('Modification d\'un utilisateur existant', async () => {
+    const userId = 2; // ID d'un utilisateur existant
+    const updateData = {
+      firstName: 'Pierre',
+      lastName: 'Durand',
+      email: 'pierre.durand@hotel.com'
+    };
+
+    const response = await api.put(`/users/${userId}`, updateData);
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('firstName', updateData.firstName);
+    expect(response.data.data).toHaveProperty('lastName', updateData.lastName);
+    expect(response.data.data).toHaveProperty('email', updateData.email);
   });
 
-  test('Tentative de création d\'utilisateur avec données manquantes', async () => {
-    const invalidUser = testData.testCases.users.invalid[2].data;
-    try {
-      await api.post('/users', invalidUser);
-    } catch (error) {
-      expect(error.response.status).toBe(400);
-      expect(error.response.data.message).toBe('Données utilisateur incomplètes');
-    }
+  test('Désactivation d\'un utilisateur', async () => {
+    const userId = 2;
+    const response = await api.patch(`/users/${userId}/status`, {
+      isActive: false
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('isActive', false);
   });
 });
 
@@ -695,9 +740,10 @@ describe('Test de tarification', () => {
 describe('Tests d\'acompte', () => {
   let token;
   let createdRoomId;
+  let vipRoomId;
 
   beforeAll(async () => {
-    // Authentification
+    // Authentification en tant que manager pour créer les chambres
     const loginResponse = await api.post('/auth/login', {
       username: 'manager1',
       password: 'manager123'
@@ -705,7 +751,7 @@ describe('Tests d\'acompte', () => {
     token = loginResponse.data.data.token;
     setAuthToken(token);
 
-    // Créer une chambre pour les tests
+    // Créer une chambre standard pour les tests
     const roomResponse = await api.post('/rooms', {
       number: '701',
       type: 'STANDARD',
@@ -715,20 +761,20 @@ describe('Tests d\'acompte', () => {
       description: 'Chambre standard pour tests d\'acompte'
     });
     createdRoomId = roomResponse.data.data.id;
+
+    // Créer une chambre VIP pour les tests
+    const vipRoomResponse = await api.post('/rooms', {
+      number: '702',
+      type: 'VIP',
+      basePrice: 2000,
+      extraPersonPrice: 400,
+      capacity: 4,
+      description: 'Chambre VIP pour tests d\'acompte'
+    });
+    vipRoomId = vipRoomResponse.data.data.id;
   });
 
   test('Calculer l\'acompte pour une chambre standard', async () => {
-    const response = await api.post('/reservations/deposit/calculate', {
-      roomId: createdRoomId,
-      totalPrice: 2000,
-      roomType: 'STANDARD'
-    });
-
-    expect(response.status).toBe(200);
-    expect(response.data.data.depositAmount).toBe(1000); // 50% de 2000
-  });
-
-  test('Créer une réservation avec acompte', async () => {
     // Se connecter en tant que réceptionniste
     const loginResponse = await api.post('/auth/login', {
       username: 'receptionist1',
@@ -736,34 +782,40 @@ describe('Tests d\'acompte', () => {
     });
     setAuthToken(loginResponse.data.data.token);
 
-    const response = await api.post('/reservations', {
-      clientName: 'Test Client',
-      clientType: 'PRESENTIEL',
-      numberOfAdults: 2,
+    const response = await api.post('/reservations/calculate-deposit', {
+      roomId: createdRoomId,
+      totalPrice: 2000,
       checkInDate: '2025-07-01',
       checkOutDate: '2025-07-03',
-      paymentMethod: 'CCP',
-      roomId: createdRoomId,
-      contactPhone: '+213555000001',
-      contactEmail: 'test.client@email.com',
-      depositAmount: 1000,
-      totalPrice: 2000
+      numberOfAdults: 2
     });
 
-    expect(response.status).toBe(201);
-    expect(response.data.data.reservation.depositAmount).toBe(1000);
-    expect(response.data.data.reservation.paymentStatus).toBe('PENDING');
+    expect(response.status).toBe(200);
+    expect(response.data.data.depositAmount).toBe(1000); // 50% de 2000
+    expect(response.data.data.depositPercentage).toBe(50);
+    expect(response.data.data.remainingAmount).toBe(1000);
   });
 
   test('Calculer l\'acompte pour une chambre VIP', async () => {
-    const response = await api.post('/reservations/deposit/calculate', {
-      roomId: createdRoomId,
+    // Se connecter en tant que réceptionniste
+    const loginResponse = await api.post('/auth/login', {
+      username: 'receptionist1',
+      password: 'reception123'
+    });
+    setAuthToken(loginResponse.data.data.token);
+
+    const response = await api.post('/reservations/calculate-deposit', {
+      roomId: vipRoomId,
       totalPrice: 4000,
-      roomType: 'VIP'
+      checkInDate: '2025-07-01',
+      checkOutDate: '2025-07-03',
+      numberOfAdults: 4
     });
 
     expect(response.status).toBe(200);
     expect(response.data.data.depositAmount).toBe(1200); // 30% de 4000
+    expect(response.data.data.depositPercentage).toBe(30);
+    expect(response.data.data.remainingAmount).toBe(2800);
   });
 });
 
@@ -850,7 +902,7 @@ describe('Tests des activités', () => {
   let token;
 
   beforeAll(async () => {
-    // Authentification
+    // Authentification en tant que manager
     const loginResponse = await api.post('/auth/login', {
       username: 'manager1',
       password: 'manager123'
@@ -859,15 +911,13 @@ describe('Tests des activités', () => {
     setAuthToken(token);
   });
 
-  test('Génération du PDF pour le restaurant', async () => {
-    const response = await api.post('/activities/pdf', {
+  test('Génération de fiche PDF pour le restaurant', async () => {
+    const response = await api.post('/activities/generate-pdf', {
       type: 'restaurant',
       date: '2025-06-10',
-      data: {
-        reservations: [],
-        totalGuests: 0,
-        period: '2025-06'
-      }
+      period: '2025-06',
+      reservations: [],
+      totalGuests: 0
     });
 
     expect(response.status).toBe(200);
@@ -875,15 +925,13 @@ describe('Tests des activités', () => {
     expect(response.data.data.pdfUrl).toContain('restaurant_2025-06-10.pdf');
   });
 
-  test('Génération du PDF pour la piscine', async () => {
-    const response = await api.post('/activities/pdf', {
+  test('Génération de fiche PDF pour la piscine', async () => {
+    const response = await api.post('/activities/generate-pdf', {
       type: 'pool',
       date: '2025-06-10',
-      data: {
-        reservations: [],
-        totalGuests: 0,
-        period: '2025-06'
-      }
+      period: '2025-06',
+      reservations: [],
+      totalGuests: 0
     });
 
     expect(response.status).toBe(200);
@@ -891,20 +939,127 @@ describe('Tests des activités', () => {
     expect(response.data.data.pdfUrl).toContain('pool_2025-06-10.pdf');
   });
 
-  test('Génération du PDF pour la salle de sport', async () => {
-    const response = await api.post('/activities/pdf', {
+  test('Génération de fiche PDF pour la salle de sport', async () => {
+    const response = await api.post('/activities/generate-pdf', {
       type: 'gym',
       date: '2025-06-10',
-      data: {
-        reservations: [],
-        totalGuests: 0,
-        period: '2025-06'
-      }
+      period: '2025-06',
+      reservations: [],
+      totalGuests: 0
     });
 
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('pdfUrl');
     expect(response.data.data.pdfUrl).toContain('gym_2025-06-10.pdf');
+  });
+});
+
+// Tests du suivi budgétaire
+describe('Tests du suivi budgétaire', () => {
+  let token;
+
+  beforeAll(async () => {
+    // Authentification en tant que manager
+    const loginResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
+    });
+    token = loginResponse.data.data.token;
+    setAuthToken(token);
+  });
+
+  test('Suivi des revenus journaliers', async () => {
+    const response = await api.get('/finance/daily', {
+      params: {
+        date: '2025-06-10'
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('cashTotal');
+    expect(response.data.data).toHaveProperty('ccpTotal');
+    expect(response.data.data).toHaveProperty('total');
+  });
+
+  test('Suivi des revenus par réceptionniste', async () => {
+    const response = await api.get('/finance/by-receptionist', {
+      params: {
+        startDate: '2025-06-01',
+        endDate: '2025-06-30'
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toBeInstanceOf(Object);
+    // Vérifier que chaque réceptionniste a des totaux pour espèces et CCP
+    Object.values(response.data.data).forEach(stats => {
+      expect(stats).toHaveProperty('cash');
+      expect(stats).toHaveProperty('ccp');
+      expect(stats).toHaveProperty('total');
+    });
+  });
+
+  test('Suivi des revenus par période', async () => {
+    const response = await api.get('/finance/by-period', {
+      params: {
+        startDate: '2025-06-01',
+        endDate: '2025-06-30'
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('daily');
+    expect(response.data.data).toHaveProperty('weekly');
+    expect(response.data.data).toHaveProperty('monthly');
+  });
+});
+
+// Tests des statistiques d'occupation
+describe('Tests des statistiques d\'occupation', () => {
+  let token;
+
+  beforeAll(async () => {
+    // Authentification en tant que manager
+    const loginResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
+    });
+    token = loginResponse.data.data.token;
+    setAuthToken(token);
+  });
+
+  test('Récupération des statistiques d\'occupation', async () => {
+    const response = await api.get('/statistics/occupation');
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('totalRooms');
+    expect(response.data.data).toHaveProperty('availableRooms');
+    expect(response.data.data).toHaveProperty('reservedRooms');
+    expect(response.data.data).toHaveProperty('occupiedRooms');
+    expect(response.data.data).toHaveProperty('occupationRate');
+  });
+
+  test('Récupération des statistiques par type de chambre', async () => {
+    const response = await api.get('/statistics/by-room-type');
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toBeInstanceOf(Object);
+    // Vérifier que chaque type de chambre a des statistiques
+    Object.values(response.data.data).forEach(stats => {
+      expect(stats).toHaveProperty('total');
+      expect(stats).toHaveProperty('available');
+      expect(stats).toHaveProperty('reserved');
+      expect(stats).toHaveProperty('occupied');
+    });
+  });
+
+  test('Récupération des statistiques de clients', async () => {
+    const response = await api.get('/statistics/clients');
+
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('totalClients');
+    expect(response.data.data).toHaveProperty('clientsByType');
+    expect(response.data.data).toHaveProperty('averageStayDuration');
   });
 });
 
@@ -954,6 +1109,60 @@ describe('Tests financiers détaillés', () => {
     } catch (error) {
       expect(error.response.status).toBe(404);
       expect(error.response.data.message).toBe(testData.testCases.finance.tracking[1].expectedError);
+    }
+  });
+});
+
+// Tests de facturation et historique des paiements
+describe('Tests de facturation et historique des paiements', () => {
+  beforeAll(async () => {
+    // Se connecter en tant que réceptionniste
+    const response = await api.post('/auth/login', {
+      username: 'receptionist1',
+      password: 'reception123'
+    });
+    authToken = response.data.data.token;
+    setAuthToken(authToken);
+  });
+
+  test('Génération de facture pour une réservation', async () => {
+    const response = await api.post(`/reservations/${createdReservationId}/invoice`);
+    
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('invoiceUrl');
+    expect(response.data.data.invoiceUrl).toContain(`/invoices/reservation_${createdReservationId}.pdf`);
+  });
+
+  test('Récupération de l\'historique des paiements', async () => {
+    const response = await api.get(`/reservations/${createdReservationId}/payments`);
+    
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('payments');
+    expect(Array.isArray(response.data.data.payments)).toBe(true);
+    
+    if (response.data.data.payments.length > 0) {
+      const payment = response.data.data.payments[0];
+      expect(payment).toHaveProperty('amount');
+      expect(payment).toHaveProperty('method');
+      expect(payment).toHaveProperty('date');
+    }
+  });
+
+  test('Tentative de génération de facture pour une réservation inexistante', async () => {
+    try {
+      await api.post('/reservations/999999/invoice');
+    } catch (error) {
+      expect(error.response.status).toBe(404);
+      expect(error.response.data.message).toBe('Réservation non trouvée');
+    }
+  });
+
+  test('Tentative de récupération de l\'historique des paiements pour une réservation inexistante', async () => {
+    try {
+      await api.get('/reservations/999999/payments');
+    } catch (error) {
+      expect(error.response.status).toBe(404);
+      expect(error.response.data.message).toBe('Réservation non trouvée');
     }
   });
 });

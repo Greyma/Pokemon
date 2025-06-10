@@ -2,6 +2,7 @@ const { Reservation, Room, User } = require('../models');
 const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs').promises;
+const PDFDocument = require('pdfkit');
 
 // Créer une nouvelle réservation
 exports.createReservation = async (req, res) => {
@@ -850,6 +851,218 @@ exports.getAvailableRooms = async (req, res) => {
     res.status(500).json({ 
       status: 'error', 
       message: 'Erreur lors de la récupération des chambres disponibles' 
+    });
+  }
+};
+
+// Générer une facture
+exports.generateInvoice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('📄 Génération de facture pour la réservation:', id);
+
+    const reservation = await Reservation.findByPk(id, {
+      include: [
+        {
+          model: Room,
+          attributes: ['number', 'type', 'basePrice', 'extraPersonPrice']
+        },
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['username', 'role']
+        }
+      ]
+    });
+
+    if (!reservation) {
+      console.log('❌ Réservation non trouvée:', id);
+      return res.status(404).json({
+        status: 'error',
+        message: 'Réservation non trouvée'
+      });
+    }
+
+    // Créer le dossier des factures s'il n'existe pas
+    const invoiceDir = path.join(__dirname, '../public/invoices');
+    console.log('📁 Création du dossier des factures:', invoiceDir);
+    await fs.mkdir(invoiceDir, { recursive: true });
+
+    // Générer un nom de fichier unique
+    const filename = `facture_${reservation.id}_${Date.now()}.pdf`;
+    const filepath = path.join(invoiceDir, filename);
+    console.log('📝 Chemin du fichier:', filepath);
+
+    // Créer le document PDF
+    const doc = new PDFDocument();
+    const stream = fs.createWriteStream(filepath);
+
+    doc.pipe(stream);
+
+    // En-tête
+    doc.fontSize(20).text('Hôtel Complexe', { align: 'center' });
+    doc.moveDown();
+
+    // Détails de la réservation
+    doc.fontSize(12).text(`Facture #${reservation.id}`);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`);
+    doc.moveDown();
+
+    doc.text(`Client: ${reservation.clientName}`);
+    doc.text(`Type de client: ${reservation.clientType}`);
+    doc.text(`Téléphone: ${reservation.contactPhone}`);
+    doc.text(`Email: ${reservation.contactEmail}`);
+    doc.moveDown();
+
+    doc.text(`Chambre: ${reservation.room.number} (${reservation.room.type})`);
+    doc.text(`Arrivée: ${new Date(reservation.checkInDate).toLocaleDateString()}`);
+    doc.text(`Départ: ${new Date(reservation.checkOutDate).toLocaleDateString()}`);
+    doc.text(`Nombre d'adultes: ${reservation.numberOfAdults}`);
+    doc.moveDown();
+
+    // Calculer le nombre de nuits
+    const nights = Math.ceil((new Date(reservation.checkOutDate) - new Date(reservation.checkInDate)) / (1000 * 60 * 60 * 24));
+
+    // Détails du prix
+    doc.text('Détails du prix:');
+    doc.text(`Prix de base par nuit: ${reservation.room.basePrice} DA`);
+    if (reservation.numberOfAdults > 2) {
+      const extraAdults = reservation.numberOfAdults - 2;
+      doc.text(`Prix par personne supplémentaire: ${reservation.room.extraPersonPrice} DA`);
+      doc.text(`Nombre de personnes supplémentaires: ${extraAdults}`);
+    }
+    doc.text(`Nombre de nuits: ${nights}`);
+    doc.moveDown();
+
+    // Total
+    doc.text(`Prix total: ${reservation.totalPrice} DA`);
+    doc.text(`Acompte payé: ${reservation.depositAmount} DA`);
+    doc.text(`Reste à payer: ${reservation.totalPrice - reservation.depositAmount} DA`);
+    doc.moveDown();
+
+    // Statut du paiement
+    doc.text(`Statut du paiement: ${reservation.paymentStatus}`);
+    doc.text(`Méthode de paiement: ${reservation.paymentMethod}`);
+    doc.moveDown();
+
+    // Pied de page
+    doc.fontSize(10).text('Merci de votre confiance !', { align: 'center' });
+    doc.text('Facture générée automatiquement', { align: 'center' });
+
+    // Finaliser le document
+    doc.end();
+
+    // Mettre à jour l'URL de la facture dans la réservation
+    await reservation.update({ invoiceUrl: `/invoices/${filename}` });
+
+    console.log('✅ Facture générée avec succès');
+
+    res.json({
+      status: 'success',
+      data: {
+        invoiceUrl: `/invoices/${filename}`,
+        reservation: {
+          id: reservation.id,
+          clientName: reservation.clientName,
+          totalPrice: reservation.totalPrice,
+          depositAmount: reservation.depositAmount,
+          remainingAmount: reservation.totalPrice - reservation.depositAmount
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur lors de la génération de la facture:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la génération de la facture'
+    });
+  }
+};
+
+// Obtenir l'historique des paiements
+exports.getPaymentHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('💰 Récupération de l\'historique des paiements pour la réservation:', id);
+
+    const reservation = await Reservation.findByPk(id, {
+      include: [
+        {
+          model: Room,
+          attributes: ['number', 'type']
+        }
+      ]
+    });
+
+    if (!reservation) {
+      console.log('❌ Réservation non trouvée:', id);
+      return res.status(404).json({
+        status: 'error',
+        message: 'Réservation non trouvée'
+      });
+    }
+
+    // Construire l'historique des paiements
+    const payments = [];
+
+    // Ajouter l'acompte s'il existe
+    if (reservation.depositAmount > 0) {
+      payments.push({
+        type: 'DEPOSIT',
+        amount: reservation.depositAmount,
+        date: reservation.createdAt,
+        status: 'COMPLETED',
+        method: reservation.paymentMethod,
+        description: 'Acompte initial'
+      });
+    }
+
+    // Ajouter le paiement final si la réservation est payée
+    if (reservation.paymentStatus === 'PAID') {
+      const finalAmount = reservation.totalPrice - reservation.depositAmount;
+      if (finalAmount > 0) {
+        payments.push({
+          type: 'FINAL',
+          amount: finalAmount,
+          date: reservation.updatedAt,
+          status: 'COMPLETED',
+          method: reservation.paymentMethod,
+          description: 'Paiement final'
+        });
+      }
+    }
+
+    // Calculer les montants totaux
+    const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const remainingAmount = reservation.totalPrice - totalPaid;
+
+    console.log('✅ Historique des paiements récupéré avec succès');
+
+    res.json({
+      status: 'success',
+      data: {
+        reservationId: reservation.id,
+        clientName: reservation.clientName,
+        room: {
+          number: reservation.room.number,
+          type: reservation.room.type
+        },
+        totalAmount: reservation.totalPrice,
+        totalPaid,
+        remainingAmount,
+        paymentStatus: reservation.paymentStatus,
+        payments,
+        period: {
+          checkIn: reservation.checkInDate,
+          checkOut: reservation.checkOutDate
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération de l\'historique des paiements:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la récupération de l\'historique des paiements'
     });
   }
 }; 
