@@ -1,7 +1,7 @@
 const axios = require('axios');
 const testData = require('./test.json');
 const request = require('supertest');
-const app = require('./src/index'); // Correction du chemin d'importation
+const app = require('./src/index');
 
 const API_URL = 'http://localhost:3001/api';
 let authToken = null;
@@ -75,7 +75,6 @@ describe('Tests de gestion des chambres', () => {
     };
 
     const response = await api.post('/rooms', newRoom);
-
     expect(response.status).toBe(201);
     expect(response.data.data).toHaveProperty('id');
     expect(response.data.data).toHaveProperty('number', newRoom.number);
@@ -84,10 +83,11 @@ describe('Tests de gestion des chambres', () => {
     expect(response.data.data).toHaveProperty('extraPersonPrice', newRoom.extraPersonPrice);
     expect(response.data.data).toHaveProperty('capacity', newRoom.capacity);
     expect(response.data.data).toHaveProperty('status', 'LIBRE');
+    createdRoomId = response.data.data.id;
   });
 
   test('Modification d\'une chambre existante', async () => {
-    const roomId = createdRoomId; // Utiliser l'ID de la chambre créée précédemment
+    const roomId = createdRoomId;
     const updateData = {
       basePrice: 16000,
       extraPersonPrice: 3000,
@@ -95,7 +95,6 @@ describe('Tests de gestion des chambres', () => {
     };
 
     const response = await api.put(`/rooms/${roomId}`, updateData);
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('basePrice', updateData.basePrice);
     expect(response.data.data).toHaveProperty('extraPersonPrice', updateData.extraPersonPrice);
@@ -107,7 +106,6 @@ describe('Tests de gestion des chambres', () => {
     const response = await api.patch(`/rooms/${roomId}/status`, {
       isActive: false
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('isActive', false);
   });
@@ -128,11 +126,26 @@ describe('Tests de gestion des réservations', () => {
   test('Création d\'une nouvelle réservation', async () => {
     const newReservation = {
       ...testData.reservations[0],
-      roomId: createdRoomId
+      roomId: createdRoomId,
+      numberOfChildren: 2,
+      clientType: 'PRESENTIEL',
+      paymentMethod: 'CASH',
+      contactPhone: '+213555000001',
+      contactEmail: 'test@email.com',
+      specialRequests: 'Test',
+      totalPrice: 20000
     };
     const response = await api.post('/reservations', newReservation);
     expect(response.status).toBe(201);
     expect(response.data.data.reservation).toHaveProperty('clientName', newReservation.clientName);
+    expect(response.data.data.reservation).toHaveProperty('numberOfChildren', 2);
+    expect(response.data.data.reservation).toHaveProperty('createdByUsername');
+    expect(response.data.data.reservation).toHaveProperty('clientType', 'PRESENTIEL');
+    expect(response.data.data.reservation).toHaveProperty('paymentMethod', 'CASH');
+    expect(response.data.data.reservation).toHaveProperty('contactPhone', '+213555000001');
+    expect(response.data.data.reservation).toHaveProperty('contactEmail', 'test@email.com');
+    expect(response.data.data.reservation).toHaveProperty('specialRequests', 'Test');
+    expect(response.data.data.reservation).toHaveProperty('totalPrice', 20000);
     createdReservationId = response.data.data.reservation.id;
   });
 
@@ -140,21 +153,91 @@ describe('Tests de gestion des réservations', () => {
     const response = await api.get('/reservations');
     expect(response.status).toBe(200);
     expect(Array.isArray(response.data.data)).toBe(true);
+    if (response.data.data.length > 0) {
+      expect(response.data.data[0]).toHaveProperty('clientName');
+      expect(response.data.data[0]).toHaveProperty('contactPhone');
+      expect(response.data.data[0]).toHaveProperty('contactEmail');
+      expect(response.data.data[0]).toHaveProperty('numberOfAdults');
+      expect(response.data.data[0]).toHaveProperty('numberOfChildren');
+      expect(response.data.data[0]).toHaveProperty('createdByUsername');
+    }
   });
 
   test('Récupération d\'une réservation spécifique', async () => {
     const response = await api.get(`/reservations/${createdReservationId}`);
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('id', createdReservationId);
+    expect(response.data.data).toHaveProperty('clientName');
+    expect(response.data.data).toHaveProperty('contactPhone');
+    expect(response.data.data).toHaveProperty('contactEmail');
+    expect(response.data.data).toHaveProperty('numberOfAdults');
+    expect(response.data.data).toHaveProperty('numberOfChildren');
+    expect(response.data.data).toHaveProperty('createdByUsername');
   });
 
   test('Mise à jour du statut de paiement', async () => {
     const updateData = {
-      paymentStatus: 'COMPLETED'
+      paymentStatus: 'COMPLETED',
+      paymentMethod: 'CASH',
+      amount: 20000
     };
     const response = await api.patch(`/reservations/${createdReservationId}/payment`, updateData);
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('paymentStatus', 'COMPLETED');
+    expect(response.data.data).toHaveProperty('paymentMethod', 'CASH');
+    expect(response.data.data).toHaveProperty('totalPaid', 20000);
+  });
+
+  test('Ajout d\'un paiement partiel', async () => {
+    const response = await api.post(`/reservations/${createdReservationId}/partial-payment`, {
+      amount: 1000,
+      paymentMethod: 'CASH',
+      paymentDate: new Date().toISOString().split('T')[0]
+    });
+    expect(response.status).toBe(200);
+    expect(response.data.data.depositAmount).toBeGreaterThanOrEqual(1000);
+    expect(response.data.data.paymentMethod).toBe('CASH');
+    expect(response.data.data.paymentDate).toBeDefined();
+  });
+
+  test('Ajout de plusieurs paiements partiels', async () => {
+    await api.post(`/reservations/${createdReservationId}/partial-payment`, { 
+      amount: 1000, 
+      paymentMethod: 'CASH',
+      paymentDate: new Date().toISOString().split('T')[0]
+    });
+    const response = await api.post(`/reservations/${createdReservationId}/partial-payment`, { 
+      amount: 1000, 
+      paymentMethod: 'CASH',
+      paymentDate: new Date().toISOString().split('T')[0]
+    });
+    expect(response.status).toBe(200);
+    expect(response.data.data.depositAmount).toBeGreaterThanOrEqual(2000);
+    expect(response.data.data.paymentMethod).toBe('CASH');
+    expect(response.data.data.paymentDate).toBeDefined();
+  });
+
+  test('Création d\'une réservation avec paiement complet', async () => {
+    const response = await api.post('/reservations', {
+      ...testData.reservations[0],
+      roomId: createdRoomId,
+      depositAmount: 20000,
+      totalPrice: 20000,
+      numberOfChildren: 1,
+      clientType: 'PRESENTIEL',
+      paymentMethod: 'CASH',
+      contactPhone: '+213555000002',
+      contactEmail: 'test2@email.com',
+      specialRequests: 'Test paiement complet'
+    });
+    expect(response.status).toBe(201);
+    expect(response.data.data.reservation.paymentStatus).toBe('PAID');
+    expect(response.data.data.reservation.numberOfChildren).toBe(1);
+    expect(response.data.data.reservation.clientType).toBe('PRESENTIEL');
+    expect(response.data.data.reservation.paymentMethod).toBe('CASH');
+    expect(response.data.data.reservation.contactPhone).toBe('+213555000002');
+    expect(response.data.data.reservation.contactEmail).toBe('test2@email.com');
+    expect(response.data.data.reservation.specialRequests).toBe('Test paiement complet');
   });
 
   test('Calcul du prix d\'une réservation', async () => {
@@ -173,7 +256,6 @@ describe('Tests de gestion des réservations', () => {
   test('Récupération des chambres disponibles', async () => {
     const checkInDate = testData.reservations[0].checkInDate;
     const checkOutDate = testData.reservations[0].checkOutDate;
-    
     const response = await api.get('/rooms/available', {
       params: {
         checkInDate,
@@ -203,11 +285,25 @@ describe('Tests supplémentaires des réservations', () => {
   test('Création d\'une réservation garantie par manager', async () => {
     const newReservation = {
       ...testData.testCases.reservations.valid[1].data,
-      roomId: createdRoomId
+      roomId: createdRoomId,
+      numberOfChildren: 2,
+      clientType: 'PRESENTIEL',
+      paymentMethod: 'CASH',
+      contactPhone: '+213555000003',
+      contactEmail: 'test3@email.com',
+      specialRequests: 'Test garantie manager',
+      totalPrice: 20000
     };
     const response = await api.post('/reservations', newReservation);
     expect(response.status).toBe(201);
     expect(response.data.data.reservation).toHaveProperty('guaranteedBy', 'manager1');
+    expect(response.data.data.reservation).toHaveProperty('numberOfChildren', 2);
+    expect(response.data.data.reservation).toHaveProperty('clientType', 'PRESENTIEL');
+    expect(response.data.data.reservation).toHaveProperty('paymentMethod', 'CASH');
+    expect(response.data.data.reservation).toHaveProperty('contactPhone', '+213555000003');
+    expect(response.data.data.reservation).toHaveProperty('contactEmail', 'test3@email.com');
+    expect(response.data.data.reservation).toHaveProperty('specialRequests', 'Test garantie manager');
+    expect(response.data.data.reservation).toHaveProperty('totalPrice', 20000);
   });
 
   test('Création d\'une réservation avec acompte', async () => {
@@ -219,11 +315,28 @@ describe('Tests supplémentaires des réservations', () => {
       paymentStatus: 'PENDING',
       checkInDate: '2025-08-01',
       checkOutDate: '2025-08-03',
-      totalPrice: 20000
+      totalPrice: 20000,
+      numberOfChildren: 1,
+      clientType: 'PRESENTIEL',
+      clientName: 'Test Client Acompte',
+      contactPhone: '+213555000008',
+      contactEmail: 'test.acompte@email.com',
+      specialRequests: 'Test avec acompte',
+      numberOfAdults: 2
     };
     const response = await api.post('/reservations', newReservation);
     expect(response.status).toBe(201);
     expect(response.data.data.reservation.depositAmount).toBe(5000);
+    expect(response.data.data.reservation.numberOfChildren).toBe(1);
+    expect(response.data.data.reservation.paymentMethod).toBe('CCP');
+    expect(response.data.data.reservation.paymentStatus).toBe('PENDING');
+    expect(response.data.data.reservation.clientType).toBe('PRESENTIEL');
+    expect(response.data.data.reservation.clientName).toBe('Test Client Acompte');
+    expect(response.data.data.reservation.contactPhone).toBe('+213555000008');
+    expect(response.data.data.reservation.contactEmail).toBe('test.acompte@email.com');
+    expect(response.data.data.reservation.specialRequests).toBe('Test avec acompte');
+    expect(response.data.data.reservation.numberOfAdults).toBe(2);
+    expect(response.data.data.reservation.totalPrice).toBe(20000);
   });
 
   test('Tentative de réservation avec nombre d\'adultes invalide', async () => {
@@ -237,6 +350,7 @@ describe('Tests supplémentaires des réservations', () => {
       contactPhone: '+213555000005',
       contactEmail: 'test@email.com',
       numberOfAdults: 0,
+      numberOfChildren: 0,
       specialRequests: 'Test',
       totalPrice: 20000
     };
@@ -264,6 +378,7 @@ describe('Tests supplémentaires des réservations', () => {
       clientName: 'Test Client',
       clientType: 'PRESENTIEL',
       numberOfAdults: 2,
+      numberOfChildren: 1,
       checkInDate: '2025-10-01',
       checkOutDate: '2025-10-03',
       contactPhone: '+213555000006',
@@ -284,7 +399,6 @@ describe('Tests supplémentaires des réservations', () => {
     const formData = new FormData();
     formData.append('file', new Blob(['test'], { type: 'application/pdf' }), 'proof.pdf');
     formData.append('reservationId', createdReservationId);
-
     const response = await api.post('/reservations/upload-pdf', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
@@ -432,6 +546,13 @@ describe('Tests des statistiques', () => {
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('byType');
   });
+
+  test('Statistiques d\'occupation sans réservations', async () => {
+    const response = await api.get('/statistics/occupation');
+    expect(response.status).toBe(200);
+    expect(response.data.data.occupiedRooms).toBe(0);
+    expect(response.data.data.occupationRate).toBe(0);
+  });
 });
 
 // Tests du suivi des employés
@@ -501,9 +622,7 @@ describe('Tests de gestion des comptes utilisateurs', () => {
       lastName: 'Dupont',
       email: 'jean.dupont@hotel.com'
     };
-
     const response = await api.post('/users', newReceptionist);
-
     expect(response.status).toBe(201);
     expect(response.data.data).toHaveProperty('id');
     expect(response.data.data).toHaveProperty('username', newReceptionist.username);
@@ -522,9 +641,7 @@ describe('Tests de gestion des comptes utilisateurs', () => {
       lastName: 'Martin',
       email: 'marie.martin@hotel.com'
     };
-
     const response = await api.post('/users', newManager);
-
     expect(response.status).toBe(201);
     expect(response.data.data).toHaveProperty('id');
     expect(response.data.data).toHaveProperty('username', newManager.username);
@@ -535,15 +652,13 @@ describe('Tests de gestion des comptes utilisateurs', () => {
   });
 
   test('Modification d\'un utilisateur existant', async () => {
-    const userId = 2; // ID d'un utilisateur existant
+    const userId = 2;
     const updateData = {
       firstName: 'Pierre',
       lastName: 'Durand',
       email: 'pierre.durand@hotel.com'
     };
-
     const response = await api.put(`/users/${userId}`, updateData);
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('firstName', updateData.firstName);
     expect(response.data.data).toHaveProperty('lastName', updateData.lastName);
@@ -555,7 +670,6 @@ describe('Tests de gestion des comptes utilisateurs', () => {
     const response = await api.patch(`/users/${userId}/status`, {
       isActive: false
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('isActive', false);
   });
@@ -613,10 +727,10 @@ describe('Test de tarification', () => {
     const response = await api.post('/reservations/calculate-price', {
       roomId: standardRoomId,
       numberOfAdults: 2,
+      numberOfChildren: 0,
       checkInDate: '2025-07-01',
       checkOutDate: '2025-07-03'
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(20000);
     expect(response.data.data.priceDetails).toEqual({
@@ -634,10 +748,10 @@ describe('Test de tarification', () => {
     const response = await api.post('/reservations/calculate-price', {
       roomId: standardRoomId,
       numberOfAdults: 3,
+      numberOfChildren: 0,
       checkInDate: '2025-07-01',
       checkOutDate: '2025-07-03'
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(24000);
     expect(response.data.data.priceDetails).toEqual({
@@ -655,10 +769,10 @@ describe('Test de tarification', () => {
     const response = await api.post('/reservations/calculate-price', {
       roomId: vipRoomId,
       numberOfAdults: 4,
+      numberOfChildren: 0,
       checkInDate: '2025-07-01',
       checkOutDate: '2025-07-05'
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(80000);
     expect(response.data.data.priceDetails).toEqual({
@@ -676,10 +790,10 @@ describe('Test de tarification', () => {
     const response = await api.post('/reservations/calculate-price', {
       roomId: vipRoomId,
       numberOfAdults: 6,
+      numberOfChildren: 0,
       checkInDate: '2025-07-01',
       checkOutDate: '2025-07-05'
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(104000);
     expect(response.data.data.priceDetails).toEqual({
@@ -697,10 +811,10 @@ describe('Test de tarification', () => {
     const response = await api.post('/reservations/calculate-price', {
       roomId: suiteRoomId,
       numberOfAdults: 6,
+      numberOfChildren: 0,
       checkInDate: '2025-07-01',
       checkOutDate: '2025-07-04'
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(90000);
     expect(response.data.data.priceDetails).toEqual({
@@ -718,10 +832,10 @@ describe('Test de tarification', () => {
     const response = await api.post('/reservations/calculate-price', {
       roomId: suiteRoomId,
       numberOfAdults: 8,
+      numberOfChildren: 0,
       checkInDate: '2025-07-01',
       checkOutDate: '2025-07-04'
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(114000);
     expect(response.data.data.priceDetails).toEqual({
@@ -787,11 +901,11 @@ describe('Tests d\'acompte', () => {
       totalPrice: 2000,
       checkInDate: '2025-07-01',
       checkOutDate: '2025-07-03',
-      numberOfAdults: 2
+      numberOfAdults: 2,
+      numberOfChildren: 0
     });
-
     expect(response.status).toBe(200);
-    expect(response.data.data.depositAmount).toBe(1000); // 50% de 2000
+    expect(response.data.data.depositAmount).toBe(1000);
     expect(response.data.data.depositPercentage).toBe(50);
     expect(response.data.data.remainingAmount).toBe(1000);
   });
@@ -809,11 +923,11 @@ describe('Tests d\'acompte', () => {
       totalPrice: 4000,
       checkInDate: '2025-07-01',
       checkOutDate: '2025-07-03',
-      numberOfAdults: 4
+      numberOfAdults: 4,
+      numberOfChildren: 0
     });
-
     expect(response.status).toBe(200);
-    expect(response.data.data.depositAmount).toBe(1200); // 30% de 4000
+    expect(response.data.data.depositAmount).toBe(1200);
     expect(response.data.data.depositPercentage).toBe(30);
     expect(response.data.data.remainingAmount).toBe(2800);
   });
@@ -839,6 +953,7 @@ describe('Tests de validation des dates', () => {
       clientName: 'Test Client',
       clientType: 'PRESENTIEL',
       numberOfAdults: 2,
+      numberOfChildren: 0,
       paymentMethod: 'CASH',
       contactPhone: '+213555000004',
       contactEmail: 'test@email.com',
@@ -864,6 +979,7 @@ describe('Tests de gestion des erreurs', () => {
       clientName: 'Test Client',
       clientType: 'PRESENTIEL',
       numberOfAdults: 2,
+      numberOfChildren: 0,
       paymentMethod: 'CASH',
       contactPhone: '+213555000007',
       contactEmail: 'test@email.com',
@@ -875,6 +991,7 @@ describe('Tests de gestion des erreurs', () => {
     } catch (error) {
       expect(error.response.status).toBe(400);
       expect(error.response.data).toHaveProperty('message');
+      expect(error.response.data.message).toMatch(/^(Données de réservation incomplètes|Chambre non disponible pour les dates spécifiées|Nombre d'adultes invalide|Méthode de paiement invalide)$/);
     }
   });
 
@@ -919,10 +1036,23 @@ describe('Tests des activités', () => {
       reservations: [],
       totalGuests: 0
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('pdfUrl');
     expect(response.data.data.pdfUrl).toContain('restaurant_2025-06-10.pdf');
+  });
+
+  test('Génération de fiche PDF pour le restaurant avec réservations', async () => {
+    const response = await api.post('/activities/generate-pdf', {
+      type: 'restaurant',
+      date: '2025-06-10',
+      period: '2025-06',
+      reservations: [{ id: createdReservationId, clientName: 'Test Client', numberOfAdults: 2, numberOfChildren: 1 }],
+      totalGuests: 3
+    });
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('pdfUrl');
+    expect(response.data.data.pdfUrl).toContain('restaurant_2025-06-10.pdf');
+    expect(response.data.data).toHaveProperty('totalGuests', 3);
   });
 
   test('Génération de fiche PDF pour la piscine', async () => {
@@ -933,10 +1063,23 @@ describe('Tests des activités', () => {
       reservations: [],
       totalGuests: 0
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('pdfUrl');
     expect(response.data.data.pdfUrl).toContain('pool_2025-06-10.pdf');
+  });
+
+  test('Génération de fiche PDF pour la piscine avec réservations', async () => {
+    const response = await api.post('/activities/generate-pdf', {
+      type: 'pool',
+      date: '2025-06-10',
+      period: '2025-06',
+      reservations: [{ id: createdReservationId, clientName: 'Test Client', numberOfAdults: 2, numberOfChildren: 1 }],
+      totalGuests: 3
+    });
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('pdfUrl');
+    expect(response.data.data.pdfUrl).toContain('pool_2025-06-10.pdf');
+    expect(response.data.data).toHaveProperty('totalGuests', 3);
   });
 
   test('Génération de fiche PDF pour la salle de sport', async () => {
@@ -947,10 +1090,23 @@ describe('Tests des activités', () => {
       reservations: [],
       totalGuests: 0
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('pdfUrl');
     expect(response.data.data.pdfUrl).toContain('gym_2025-06-10.pdf');
+  });
+
+  test('Génération de fiche PDF pour la salle de sport avec réservations', async () => {
+    const response = await api.post('/activities/generate-pdf', {
+      type: 'gym',
+      date: '2025-06-10',
+      period: '2025-06',
+      reservations: [{ id: createdReservationId, clientName: 'Test Client', numberOfAdults: 2, numberOfChildren: 1 }],
+      totalGuests: 3
+    });
+    expect(response.status).toBe(200);
+    expect(response.data.data).toHaveProperty('pdfUrl');
+    expect(response.data.data.pdfUrl).toContain('gym_2025-06-10.pdf');
+    expect(response.data.data).toHaveProperty('totalGuests', 3);
   });
 });
 
@@ -970,15 +1126,28 @@ describe('Tests du suivi budgétaire', () => {
 
   test('Suivi des revenus journaliers', async () => {
     const response = await api.get('/finance/daily', {
-      params: {
-        date: '2025-06-10'
-      }
+      params: { date: '2025-06-10' }
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('cashTotal');
     expect(response.data.data).toHaveProperty('ccpTotal');
     expect(response.data.data).toHaveProperty('total');
+  });
+
+  test('Validation des revenus journaliers', async () => {
+    await api.post('/reservations', {
+      ...testData.reservations[0],
+      roomId: createdRoomId,
+      depositAmount: 5000,
+      paymentMethod: 'CASH',
+      checkInDate: '2025-06-10',
+      checkOutDate: '2025-06-12'
+    });
+    const response = await api.get('/finance/daily', {
+      params: { date: '2025-06-10' }
+    });
+    expect(response.status).toBe(200);
+    expect(response.data.data.cashTotal).toBeGreaterThanOrEqual(5000);
   });
 
   test('Suivi des revenus par réceptionniste', async () => {
@@ -988,10 +1157,8 @@ describe('Tests du suivi budgétaire', () => {
         endDate: '2025-06-30'
       }
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data).toBeInstanceOf(Object);
-    // Vérifier que chaque réceptionniste a des totaux pour espèces et CCP
     Object.values(response.data.data).forEach(stats => {
       expect(stats).toHaveProperty('cash');
       expect(stats).toHaveProperty('ccp');
@@ -1006,7 +1173,6 @@ describe('Tests du suivi budgétaire', () => {
         endDate: '2025-06-30'
       }
     });
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('daily');
     expect(response.data.data).toHaveProperty('weekly');
@@ -1030,7 +1196,6 @@ describe('Tests des statistiques d\'occupation', () => {
 
   test('Récupération des statistiques d\'occupation', async () => {
     const response = await api.get('/statistics/occupation');
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('totalRooms');
     expect(response.data.data).toHaveProperty('availableRooms');
@@ -1041,10 +1206,8 @@ describe('Tests des statistiques d\'occupation', () => {
 
   test('Récupération des statistiques par type de chambre', async () => {
     const response = await api.get('/statistics/by-room-type');
-
     expect(response.status).toBe(200);
     expect(response.data.data).toBeInstanceOf(Object);
-    // Vérifier que chaque type de chambre a des statistiques
     Object.values(response.data.data).forEach(stats => {
       expect(stats).toHaveProperty('total');
       expect(stats).toHaveProperty('available');
@@ -1055,7 +1218,6 @@ describe('Tests des statistiques d\'occupation', () => {
 
   test('Récupération des statistiques de clients', async () => {
     const response = await api.get('/statistics/clients');
-
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('totalClients');
     expect(response.data.data).toHaveProperty('clientsByType');
@@ -1127,7 +1289,6 @@ describe('Tests de facturation et historique des paiements', () => {
 
   test('Génération de facture pour une réservation', async () => {
     const response = await api.post(`/reservations/${createdReservationId}/invoice`);
-    
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('invoiceUrl');
     expect(response.data.data.invoiceUrl).toContain(`/invoices/reservation_${createdReservationId}.pdf`);
@@ -1135,11 +1296,9 @@ describe('Tests de facturation et historique des paiements', () => {
 
   test('Récupération de l\'historique des paiements', async () => {
     const response = await api.get(`/reservations/${createdReservationId}/payments`);
-    
     expect(response.status).toBe(200);
     expect(response.data.data).toHaveProperty('payments');
     expect(Array.isArray(response.data.data.payments)).toBe(true);
-    
     if (response.data.data.payments.length > 0) {
       const payment = response.data.data.payments[0];
       expect(payment).toHaveProperty('amount');

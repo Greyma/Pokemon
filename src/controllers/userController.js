@@ -1,64 +1,91 @@
 const { User } = require('../models');
-const { Op } = require('sequelize');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 // Créer un nouvel utilisateur
 exports.createUser = async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const {
+      username,
+      password,
+      role,
+      firstName,
+      lastName,
+      email,
+      phone
+    } = req.body;
 
     // Validation des données requises
-    if (!username || !password || !role) {
+    if (!username || !password || !role || !firstName || !lastName || !email) {
       return res.status(400).json({
-        status: 'error',
+        success: false,
         message: 'Données utilisateur incomplètes'
       });
     }
 
     // Validation du rôle
-    if (!['MANAGER', 'RECEPTIONIST'].includes(role)) {
+    const validRoles = ['RECEPTIONIST', 'MANAGER'];
+    if (!validRoles.includes(role)) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Rôle utilisateur invalide'
+        success: false,
+        message: 'Rôle invalide'
       });
     }
 
-    // Vérifier si l'utilisateur existe déjà
+    // Vérifier si le nom d'utilisateur existe déjà
     const existingUser = await User.findOne({ where: { username } });
     if (existingUser) {
       return res.status(400).json({
-        status: 'error',
+        success: false,
         message: 'Ce nom d\'utilisateur existe déjà'
       });
     }
 
+    // Vérifier si l'email existe déjà
+    const existingEmail = await User.findOne({ where: { email } });
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cet email est déjà utilisé'
+      });
+    }
+
+    // Hasher le mot de passe
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Créer l'utilisateur
     const user = await User.create({
       username,
-      password,
-      role
+      password: hashedPassword,
+      role,
+      firstName,
+      lastName,
+      email,
+      phone,
+      isActive: true
     });
 
-    return res.status(201).json({
-      status: 'success',
-      data: {
-        id: user.id,
-        username: user.username,
-        role: user.role
-      }
+    // Ne pas renvoyer le mot de passe
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      isActive: user.isActive
+    };
+
+    res.status(201).json({
+      success: true,
+      data: userResponse
     });
   } catch (error) {
     console.error('Erreur lors de la création de l\'utilisateur:', error);
-    
-    // Gestion spécifique des erreurs de contrainte unique
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Ce nom d\'utilisateur existe déjà'
-      });
-    }
-
-    // Pour toute autre erreur
-    return res.status(500).json({
-      status: 'error',
+    res.status(500).json({
+      success: false,
       message: 'Erreur lors de la création de l\'utilisateur'
     });
   }
@@ -68,19 +95,205 @@ exports.createUser = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.findAll({
-      attributes: ['id', 'username', 'role', 'isActive', 'lastLogin', 'createdAt'],
-      order: [['createdAt', 'DESC']]
+      attributes: { exclude: ['password'] },
+      order: [['username', 'ASC']]
     });
 
-    return res.json({
-      status: 'success',
+    res.json({
+      success: true,
       data: users
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des utilisateurs:', error);
-    return res.status(500).json({
-      status: 'error',
+    res.status(500).json({
+      success: false,
       message: 'Erreur lors de la récupération des utilisateurs'
+    });
+  }
+};
+
+// Obtenir un utilisateur par ID
+exports.getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération de l\'utilisateur'
+    });
+  }
+};
+
+// Mettre à jour un utilisateur
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      role
+    } = req.body;
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Validation du rôle si fourni
+    if (role && !['RECEPTIONIST', 'MANAGER'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rôle invalide'
+      });
+    }
+
+    // Vérifier si l'email existe déjà (si modifié)
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ where: { email } });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cet email est déjà utilisé'
+        });
+      }
+    }
+
+    // Mettre à jour l'utilisateur
+    await user.update({
+      firstName: firstName || user.firstName,
+      lastName: lastName || user.lastName,
+      email: email || user.email,
+      phone: phone || user.phone,
+      role: role || user.role
+    });
+
+    // Ne pas renvoyer le mot de passe
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      isActive: user.isActive
+    };
+
+    res.json({
+      success: true,
+      data: userResponse
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de l\'utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour de l\'utilisateur'
+    });
+  }
+};
+
+// Mettre à jour le statut d'un utilisateur
+exports.updateUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Mettre à jour le statut
+    await user.update({ isActive });
+
+    // Ne pas renvoyer le mot de passe
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      isActive: user.isActive
+    };
+
+    res.json({
+      success: true,
+      data: userResponse
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du statut de l\'utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour du statut de l\'utilisateur'
+    });
+  }
+};
+
+// Changer le mot de passe
+exports.changePassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Vérifier l'ancien mot de passe
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mot de passe actuel incorrect'
+      });
+    }
+
+    // Hasher le nouveau mot de passe
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Mettre à jour le mot de passe
+    await user.update({ password: hashedPassword });
+
+    res.json({
+      success: true,
+      message: 'Mot de passe modifié avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors du changement de mot de passe:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du changement de mot de passe'
     });
   }
 };

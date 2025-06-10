@@ -22,6 +22,14 @@ const Reservation = sequelize.define('Reservation', {
       min: 1
     }
   },
+  numberOfChildren: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    validate: {
+      min: 0
+    }
+  },
   checkInDate: {
     type: DataTypes.DATE,
     allowNull: false

@@ -20,17 +20,16 @@ exports.createRoom = async (req, res) => {
     const {
       number,
       type,
+      capacity,
       basePrice,
       extraPersonPrice,
-      description,
-      capacity,
-      amenities
+      description
     } = req.body;
 
     // Validation des données requises
-    if (!number || !type || !basePrice || !extraPersonPrice || !description || !capacity) {
+    if (!number || !type || !capacity || !basePrice) {
       return res.status(400).json({
-        status: 'error',
+        success: false,
         message: 'Données de chambre incomplètes'
       });
     }
@@ -39,8 +38,23 @@ exports.createRoom = async (req, res) => {
     const validTypes = ['STANDARD', 'VIP', 'SUITE'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({
-        status: 'error',
+        success: false,
         message: 'Type de chambre invalide'
+      });
+    }
+
+    // Validation des prix
+    if (basePrice < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le prix de base ne peut pas être négatif'
+      });
+    }
+
+    if (extraPersonPrice && extraPersonPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le prix par personne supplémentaire ne peut pas être négatif'
       });
     }
 
@@ -48,31 +62,8 @@ exports.createRoom = async (req, res) => {
     const existingRoom = await Room.findOne({ where: { number } });
     if (existingRoom) {
       return res.status(400).json({
-        status: 'error',
+        success: false,
         message: 'Ce numéro de chambre existe déjà'
-      });
-    }
-
-    // Validation des prix
-    if (basePrice < 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Le prix de base doit être positif'
-      });
-    }
-
-    if (extraPersonPrice < 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Le prix par personne supplémentaire doit être positif'
-      });
-    }
-
-    // Validation de la capacité
-    if (capacity < 1) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'La capacité doit être supérieure à 0'
       });
     }
 
@@ -80,23 +71,23 @@ exports.createRoom = async (req, res) => {
     const room = await Room.create({
       number,
       type,
-      basePrice,
-      extraPersonPrice,
-      description,
       capacity,
-      amenities: amenities || [],
-      status: 'LIBRE'
+      basePrice,
+      extraPersonPrice: extraPersonPrice || 0,
+      description,
+      status: 'LIBRE',
+      isActive: true
     });
 
     res.status(201).json({
-      status: 'success',
+      success: true,
       data: room
     });
   } catch (error) {
     console.error('Erreur lors de la création de la chambre:', error);
-    res.status(400).json({
-      status: 'error',
-      message: error.message || 'Erreur lors de la création de la chambre'
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la création de la chambre'
     });
   }
 };
@@ -105,43 +96,44 @@ exports.createRoom = async (req, res) => {
 exports.getAllRooms = async (req, res) => {
   try {
     const rooms = await Room.findAll({
-      where: { isActive: true },
       order: [['number', 'ASC']]
     });
 
     res.json({
-      status: 'success',
+      success: true,
       data: rooms
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des chambres:', error);
     res.status(500).json({
-      status: 'error',
+      success: false,
       message: 'Erreur lors de la récupération des chambres'
     });
   }
 };
 
-// Obtenir les chambres disponibles
-exports.getAvailableRooms = async (req, res) => {
+// Obtenir une chambre par ID
+exports.getRoomById = async (req, res) => {
   try {
-    const rooms = await Room.findAll({
-      where: {
-        status: 'LIBRE',
-        isActive: true
-      },
-      order: [['number', 'ASC']]
-    });
+    const { id } = req.params;
+    const room = await Room.findByPk(id);
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chambre non trouvée'
+      });
+    }
 
     res.json({
-      status: 'success',
-      data: rooms
+      success: true,
+      data: room
     });
   } catch (error) {
-    console.error('Erreur lors de la récupération des chambres disponibles:', error);
+    console.error('Erreur lors de la récupération de la chambre:', error);
     res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de la récupération des chambres disponibles'
+      success: false,
+      message: 'Erreur lors de la récupération de la chambre'
     });
   }
 };
@@ -151,90 +143,62 @@ exports.updateRoom = async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      type,
+      capacity,
       basePrice,
       extraPersonPrice,
-      description,
-      capacity,
-      amenities,
-      isActive
+      description
     } = req.body;
 
     const room = await Room.findByPk(id);
     if (!room) {
       return res.status(404).json({
-        status: 'error',
+        success: false,
         message: 'Chambre non trouvée'
       });
     }
 
-    // Validation des prix si fournis
+    // Validation du type de chambre
+    if (type && !['STANDARD', 'VIP', 'SUITE'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Type de chambre invalide'
+      });
+    }
+
+    // Validation des prix
     if (basePrice !== undefined && basePrice < 0) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Le prix de base doit être positif'
+        success: false,
+        message: 'Le prix de base ne peut pas être négatif'
       });
     }
 
     if (extraPersonPrice !== undefined && extraPersonPrice < 0) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Le prix par personne supplémentaire doit être positif'
+        success: false,
+        message: 'Le prix par personne supplémentaire ne peut pas être négatif'
       });
     }
 
-    // Validation de la capacité si fournie
-    if (capacity !== undefined && capacity < 1) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'La capacité doit être supérieure à 0'
-      });
-    }
-
+    // Mettre à jour la chambre
     await room.update({
-      basePrice,
-      extraPersonPrice,
-      description,
-      capacity,
-      amenities,
-      isActive
+      type: type || room.type,
+      capacity: capacity || room.capacity,
+      basePrice: basePrice || room.basePrice,
+      extraPersonPrice: extraPersonPrice !== undefined ? extraPersonPrice : room.extraPersonPrice,
+      description: description || room.description
     });
 
     res.json({
-      status: 'success',
+      success: true,
       data: room
     });
   } catch (error) {
     console.error('Erreur lors de la mise à jour de la chambre:', error);
-    res.status(400).json({
-      status: 'error',
-      message: error.message || 'Erreur lors de la mise à jour de la chambre'
-    });
-  }
-};
-
-// Libérer une chambre
-exports.releaseRoom = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const room = await Room.findByPk(id);
-    
-    if (!room) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Chambre non trouvée'
-      });
-    }
-
-    await room.update({ status: 'LIBRE' });
-    res.json({
-      status: 'success',
-      message: 'Chambre libérée avec succès'
-    });
-  } catch (error) {
-    console.error('Erreur lors de la libération de la chambre:', error);
     res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de la libération de la chambre'
+      success: false,
+      message: 'Erreur lors de la mise à jour de la chambre'
     });
   }
 };
@@ -243,36 +207,65 @@ exports.releaseRoom = async (req, res) => {
 exports.updateRoomStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, isActive } = req.body;
 
     const room = await Room.findByPk(id);
     if (!room) {
       return res.status(404).json({
-        status: 'error',
+        success: false,
         message: 'Chambre non trouvée'
       });
     }
 
     // Validation du statut
-    const validStatuses = ['LIBRE', 'RÉSERVÉE', 'OCCUPÉE'];
-    if (!validStatuses.includes(status)) {
+    const validStatuses = ['LIBRE', 'RÉSERVÉE', 'OCCUPÉE', 'MAINTENANCE'];
+    if (status && !validStatuses.includes(status)) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Statut invalide'
+        success: false,
+        message: 'Statut de chambre invalide'
       });
     }
 
-    await room.update({ status });
+    // Mettre à jour le statut
+    const updates = {};
+    if (status) updates.status = status;
+    if (isActive !== undefined) updates.isActive = isActive;
+
+    await room.update(updates);
 
     res.json({
-      status: 'success',
+      success: true,
       data: room
     });
   } catch (error) {
-    console.error('Erreur lors de la mise à jour du statut:', error);
-    res.status(400).json({
-      status: 'error',
-      message: error.message || 'Erreur lors de la mise à jour du statut'
+    console.error('Erreur lors de la mise à jour du statut de la chambre:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour du statut de la chambre'
+    });
+  }
+};
+
+// Obtenir les chambres disponibles
+exports.getAvailableRooms = async (req, res) => {
+  try {
+    const rooms = await Room.findAll({
+      where: {
+        isActive: true,
+        status: 'LIBRE'
+      },
+      order: [['number', 'ASC']]
+    });
+
+    res.json({
+      success: true,
+      data: rooms
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des chambres disponibles:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des chambres disponibles'
     });
   }
 };
@@ -299,6 +292,45 @@ exports.getRoomByNumber = async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Erreur lors de la récupération de la chambre'
+    });
+  }
+};
+
+// Libérer une chambre
+exports.releaseRoom = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const room = await Room.findByPk(id);
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chambre non trouvée'
+      });
+    }
+
+    // Vérifier si la chambre est déjà libre
+    if (room.status === 'LIBRE') {
+      return res.status(400).json({
+        success: false,
+        message: 'La chambre est déjà libre'
+      });
+    }
+
+    // Libérer la chambre
+    await room.update({
+      status: 'LIBRE'
+    });
+
+    res.json({
+      success: true,
+      data: room
+    });
+  } catch (error) {
+    console.error('Erreur lors de la libération de la chambre:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la libération de la chambre'
     });
   }
 }; 
