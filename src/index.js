@@ -20,8 +20,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configuration globale de express-file-upload
-app.use(fileUpload({
+// Configuration de express-file-upload uniquement pour les routes d'upload
+app.use('/api/reservations/upload-ccp', fileUpload({
   debug: true,
   useTempFiles: true,
   tempFileDir: '/tmp/',
@@ -32,22 +32,19 @@ app.use(fileUpload({
   safeFileNames: true,
   preserveExtension: true,
   handleErrors: true,
-  checkFileType: true
+  checkFileType: false
 }));
 
-// Middleware de logging pour les uploads
+// Middleware de débogage pour les requêtes
 app.use((req, res, next) => {
-  // Ne logger que si c'est une requête multipart/form-data
-  if (req.headers['content-type']?.includes('multipart/form-data')) {
-    console.log('📝 Requête d\'upload reçue:', {
-      method: req.method,
-      path: req.path,
-      contentType: req.headers['content-type'],
-      hasFiles: !!req.files,
-      body: req.body,
-      headers: req.headers
-    });
-  }
+  console.log('📝 Requête reçue:', {
+    method: req.method,
+    path: req.path,
+    contentType: req.headers['content-type'],
+    hasFiles: !!req.files,
+    body: req.body,
+    headers: req.headers
+  });
   next();
 });
 
