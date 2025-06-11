@@ -322,4 +322,26 @@ exports.getUserStats = async (req, res) => {
       message: 'Erreur lors de la récupération des statistiques'
     });
   }
+};
+
+// Désactiver un utilisateur
+exports.deactivateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    await user.update({ isActive });
+
+    const updatedUser = user.toJSON();
+    delete updatedUser.password;
+
+    res.json({ data: updatedUser });
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur lors de la désactivation de l\'utilisateur' });
+  }
 }; 

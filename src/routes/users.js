@@ -10,5 +10,7 @@ router.use(authenticateToken);
 router.get('/', authorizeRole(['MANAGER']), userController.getAllUsers);
 router.post('/', authorizeRole(['MANAGER']), userController.createUser);
 router.get('/stats', authorizeRole(['MANAGER']), userController.getUserStats);
+router.put('/:id', authorizeRole(['MANAGER']), userController.updateUser);
+router.patch('/:id/status', authorizeRole(['MANAGER']), userController.deactivateUser);
 
 module.exports = router; 

@@ -7,6 +7,8 @@ const PDFDocument = require('pdfkit');
 // Créer une nouvelle réservation
 exports.createReservation = async (req, res) => {
   try {
+    console.log('Requête complète:', req.body);
+    
     const {
       clientName,
       clientType,
@@ -15,24 +17,47 @@ exports.createReservation = async (req, res) => {
       checkInDate,
       checkOutDate,
       paymentMethod,
-      roomId,
+      specialRequests,
       contactPhone,
       contactEmail,
-      specialRequests,
-      depositAmount,
+      roomId,
+      depositAmount = 0,
+      totalPrice,
       guaranteedBy
     } = req.body;
 
     // Vérifier les données requises
-    if (!clientName || !clientType || !checkInDate || !checkOutDate || !paymentMethod || !roomId || !contactPhone || !contactEmail) {
+    if (!clientName || !clientType || !numberOfAdults || !checkInDate || !checkOutDate || !paymentMethod || !contactPhone || !contactEmail || !roomId) {
+      console.log('Données manquantes:', {
+        clientName,
+        clientType,
+        numberOfAdults,
+        checkInDate,
+        checkOutDate,
+        paymentMethod,
+        contactPhone,
+        contactEmail,
+        roomId
+      });
       return res.status(400).json({
         success: false,
-        message: 'Données de réservation incomplètes'
+        message: 'Données de réservation incomplètes',
+        missingFields: {
+          clientName: !clientName,
+          clientType: !clientType,
+          numberOfAdults: !numberOfAdults,
+          checkInDate: !checkInDate,
+          checkOutDate: !checkOutDate,
+          paymentMethod: !paymentMethod,
+          contactPhone: !contactPhone,
+          contactEmail: !contactEmail,
+          roomId: !roomId
+        }
       });
     }
 
     // Vérifier le nombre d'adultes
-    if (!numberOfAdults || numberOfAdults <= 0) {
+    if (numberOfAdults < 1) {
       return res.status(400).json({
         success: false,
         message: 'Le nombre d\'adultes doit être supérieur à 0'
@@ -50,11 +75,185 @@ exports.createReservation = async (req, res) => {
     }
 
     // Vérifier la méthode de paiement
-    const validPaymentMethods = ['CASH', 'CREDIT_CARD', 'BANK_TRANSFER', 'CCP'];
+    const validPaymentMethods = ['CASH', 'CREDIT_CARD', 'BANK_TRANSFER'];
     if (!validPaymentMethods.includes(paymentMethod)) {
       return res.status(400).json({
         success: false,
         message: 'Méthode de paiement invalide'
+      });
+    }
+
+    // Vérifier la chambre
+    console.log('Recherche de la chambre avec ID:', roomId);
+    const room = await Room.findByPk(roomId);
+    if (!room) {
+      console.log('Chambre non trouvée pour ID:', roomId);
+      return res.status(404).json({
+        success: false,
+        message: 'Chambre non trouvée'
+      });
+    }
+    console.log('Chambre trouvée:', room.toJSON());
+
+    // Vérifier la disponibilité de la chambre
+    const existingReservation = await Reservation.findOne({
+      where: {
+        roomId,
+        [Op.or]: [
+          {
+            checkInDate: {
+              [Op.between]: [checkIn, checkOut]
+            }
+          },
+          {
+            checkOutDate: {
+              [Op.between]: [checkIn, checkOut]
+            }
+          }
+        ]
+      }
+    });
+
+    if (existingReservation) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chambre non disponible pour les dates spécifiées'
+      });
+    }
+
+    // Vérifier le garant si spécifié
+    if (guaranteedBy) {
+      const guarantor = await User.findByPk(guaranteedBy);
+      if (!guarantor || guarantor.role !== 'MANAGER') {
+        return res.status(400).json({
+          success: false,
+          message: 'Garant invalide'
+        });
+      }
+    }
+
+    // Calculer le prix total
+    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    const basePrice = room.basePrice * nights;
+    const extraAdults = Math.max(0, numberOfAdults - room.capacity);
+    const extraPrice = extraAdults * room.extraPersonPrice * nights;
+    const calculatedTotalPrice = totalPrice || basePrice + extraPrice;
+
+    console.log('Calcul du prix:', {
+      nights,
+      basePrice,
+      extraAdults,
+      extraPrice,
+      calculatedTotalPrice,
+      providedTotalPrice: totalPrice
+    });
+
+    // Déterminer le statut de paiement
+    let paymentStatus = 'PENDING';
+    if (depositAmount >= calculatedTotalPrice) {
+      paymentStatus = 'PAID';
+    } else if (depositAmount > 0) {
+      paymentStatus = 'DEPOSIT_PAID';
+    }
+
+    console.log('Statut de paiement:', {
+      depositAmount,
+      calculatedTotalPrice,
+      paymentStatus
+    });
+
+    // Créer la réservation
+    const reservation = await Reservation.create({
+      clientName,
+      clientType,
+      numberOfAdults,
+      numberOfChildren,
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+      paymentMethod,
+      paymentStatus,
+      specialRequests,
+      contactPhone,
+      contactEmail,
+      roomId,
+      depositAmount,
+      totalPrice: calculatedTotalPrice,
+      guaranteedBy,
+      createdBy: req.user.id
+    });
+
+    // Mettre à jour le statut de la chambre
+    await room.update({ status: 'RÉSERVÉE' });
+
+    // Récupérer le créateur pour inclure son nom d'utilisateur
+    const creator = await User.findByPk(req.user.id);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        reservation: {
+          ...reservation.toJSON(),
+          createdByUsername: creator ? creator.username : null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors de la création de la réservation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la création de la réservation'
+    });
+  }
+};
+
+// Calculer le prix d'une réservation
+exports.calculatePrice = async (req, res) => {
+  try {
+    const { checkInDate, checkOutDate, roomId, numberOfAdults } = req.body;
+
+    // Vérifier les données requises
+    if (!checkInDate || !checkOutDate || !numberOfAdults) {
+      return res.status(400).json({
+        success: false,
+        message: 'Données incomplètes pour le calcul du prix'
+      });
+    }
+
+    // Vérifier les dates
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    if (checkIn >= checkOut) {
+      return res.status(400).json({
+        success: false,
+        message: 'La date de départ doit être postérieure à la date d\'arrivée'
+      });
+    }
+
+    // Si roomId n'est pas fourni, retourner un prix par défaut
+    if (!roomId) {
+      const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+      const defaultBasePrice = 10000; // Prix par défaut
+      const defaultExtraPersonPrice = 2000; // Prix par personne supplémentaire par défaut
+      const defaultCapacity = 2; // Capacité par défaut
+      const extraAdults = Math.max(0, numberOfAdults - defaultCapacity);
+      const basePrice = defaultBasePrice * nights;
+      const extraPrice = extraAdults * defaultExtraPersonPrice * nights;
+      const totalPrice = basePrice + extraPrice;
+
+      return res.json({
+        success: true,
+        data: {
+          totalPrice,
+          priceDetails: {
+            basePrice,
+            extraPersonPrice: defaultExtraPersonPrice,
+            nights,
+            capacity: defaultCapacity,
+            extraAdults,
+            basePrice: basePrice,
+            extraPrice
+          }
+        }
       });
     }
 
@@ -67,24 +266,6 @@ exports.createReservation = async (req, res) => {
       });
     }
 
-    if (room.status !== 'LIBRE') {
-      return res.status(400).json({
-        success: false,
-        message: 'La chambre n\'est pas disponible'
-      });
-    }
-
-    // Vérifier le garant si spécifié
-    if (guaranteedBy) {
-      const guarantor = await User.findOne({ where: { username: guaranteedBy } });
-      if (!guarantor) {
-        return res.status(404).json({
-          success: false,
-          message: `Garant avec le nom d'utilisateur ${guaranteedBy} non trouvé`
-        });
-      }
-    }
-
     // Calculer le prix total
     const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
     const basePrice = room.basePrice * nights;
@@ -92,54 +273,26 @@ exports.createReservation = async (req, res) => {
     const extraPrice = extraAdults * room.extraPersonPrice * nights;
     const totalPrice = basePrice + extraPrice;
 
-    // Vérifier l'acompte si fourni
-    if (depositAmount) {
-      const depositPercentage = room.type === 'STANDARD' ? 50 : 30;
-      const minDeposit = totalPrice * (depositPercentage / 100);
-      if (depositAmount < minDeposit) {
-        return res.status(400).json({
-          success: false,
-          message: `L'acompte minimum doit être de ${minDeposit} DA (${depositPercentage}% du prix total)`
-        });
-      }
-    }
-
-    // Créer la réservation
-    const reservation = await Reservation.create({
-      clientName,
-      clientType,
-      numberOfAdults,
-      numberOfChildren,
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      paymentMethod,
-      roomId,
-      contactPhone,
-      contactEmail,
-      specialRequests,
-      depositAmount,
-      totalPrice,
-      paymentStatus: depositAmount ? 'DEPOSIT_PAID' : 'PENDING',
-      guaranteedBy
-    });
-
-    // Mettre à jour le statut de la chambre
-    await room.update({ status: 'RÉSERVÉE' });
-
-    res.status(201).json({
+    res.json({
       success: true,
       data: {
-        reservation,
         totalPrice,
-        depositAmount: depositAmount || 0,
-        remainingAmount: totalPrice - (depositAmount || 0)
+        priceDetails: {
+          basePrice,
+          extraPersonPrice: room.extraPersonPrice,
+          nights,
+          capacity: room.capacity,
+          extraAdults,
+          basePrice: basePrice,
+          extraPrice
+        }
       }
     });
   } catch (error) {
-    console.error('Erreur lors de la création de la réservation:', error);
+    console.error('Erreur lors du calcul du prix:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la création de la réservation'
+      message: 'Erreur lors du calcul du prix'
     });
   }
 };
@@ -158,13 +311,18 @@ exports.getAllReservations = async (req, res) => {
           as: 'creator',
           attributes: ['username', 'role']
         }
-      ],
-      order: [['createdAt', 'DESC']]
+      ]
     });
 
-    res.json({
+    // Ajouter createdByUsername à chaque réservation
+    const reservationsWithCreator = reservations.map(reservation => ({
+      ...reservation.toJSON(),
+      createdByUsername: reservation.creator ? reservation.creator.username : null
+    }));
+
+    res.status(200).json({
       success: true,
-      data: reservations
+      data: reservationsWithCreator
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des réservations:', error);
@@ -178,17 +336,16 @@ exports.getAllReservations = async (req, res) => {
 // Récupérer une réservation par son ID
 exports.getReservationById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const reservation = await Reservation.findByPk(id, {
+    const reservation = await Reservation.findByPk(req.params.id, {
       include: [
         {
           model: Room,
-          attributes: ['number', 'type', 'basePrice', 'extraPersonPrice', 'capacity']
+          attributes: ['number', 'type', 'status']
         },
         {
           model: User,
           as: 'creator',
-          attributes: ['username', 'firstName', 'lastName']
+          attributes: ['username', 'role']
         }
       ]
     });
@@ -200,14 +357,15 @@ exports.getReservationById = async (req, res) => {
       });
     }
 
-    res.json({
+    // Ajouter createdByUsername à la réponse
+    const reservationWithCreator = {
+      ...reservation.toJSON(),
+      createdByUsername: reservation.creator ? reservation.creator.username : null
+    };
+
+    res.status(200).json({
       success: true,
-      data: {
-        reservation,
-        totalPrice: reservation.totalPrice,
-        depositAmount: reservation.depositAmount || 0,
-        remainingAmount: reservation.totalPrice - (reservation.depositAmount || 0)
-      }
+      data: reservationWithCreator
     });
   } catch (error) {
     console.error('Erreur lors de la récupération de la réservation:', error);
@@ -221,10 +379,9 @@ exports.getReservationById = async (req, res) => {
 // Mettre à jour le statut de paiement
 exports.updatePaymentStatus = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { paymentStatus } = req.body;
+    const { paymentStatus, paymentMethod, amount } = req.body;
+    const reservation = await Reservation.findByPk(req.params.id);
 
-    const reservation = await Reservation.findByPk(id);
     if (!reservation) {
       return res.status(404).json({
         success: false,
@@ -232,114 +389,26 @@ exports.updatePaymentStatus = async (req, res) => {
       });
     }
 
-    const validStatuses = ['PENDING', 'DEPOSIT_PAID', 'PAID', 'CANCELLED'];
-    if (!validStatuses.includes(paymentStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Statut de paiement invalide'
-      });
-    }
+    // Mettre à jour le statut et le montant payé
+    await reservation.update({
+      paymentStatus,
+      paymentMethod,
+      depositAmount: amount
+    });
 
-    // Vérifier les transitions de statut valides
-    const currentStatus = reservation.paymentStatus;
-    const validTransitions = {
-      'PENDING': ['DEPOSIT_PAID', 'CANCELLED'],
-      'DEPOSIT_PAID': ['PAID', 'CANCELLED'],
-      'PAID': ['CANCELLED'],
-      'CANCELLED': []
-    };
-
-    if (!validTransitions[currentStatus].includes(paymentStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: `Transition de statut invalide: ${currentStatus} -> ${paymentStatus}`
-      });
-    }
-
-    await reservation.update({ paymentStatus });
-
-    // Si la réservation est annulée, libérer la chambre
-    if (paymentStatus === 'CANCELLED') {
-      const room = await Room.findByPk(reservation.roomId);
-      if (room) {
-        await room.update({ status: 'LIBRE' });
-      }
-    }
-
-    res.json({
+    res.status(200).json({
       success: true,
       data: {
-        reservation,
-        previousStatus: currentStatus,
-        newStatus: paymentStatus
+        paymentStatus,
+        paymentMethod,
+        totalPaid: amount
       }
     });
   } catch (error) {
-    console.error('Erreur lors de la mise à jour du statut de paiement:', error);
+    console.error('Erreur lors de la mise à jour du paiement:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la mise à jour du statut de paiement'
-    });
-  }
-};
-
-// Calculer le prix d'une réservation
-exports.calculatePrice = async (req, res) => {
-  try {
-    const { roomId, checkInDate, checkOutDate, numberOfAdults } = req.body;
-
-    // Vérifier les données requises
-    if (!roomId || !checkInDate || !checkOutDate || !numberOfAdults) {
-      return res.status(400).json({
-        success: false,
-        message: 'Données incomplètes pour le calcul du prix'
-      });
-    }
-
-    // Vérifier les dates
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
-    if (checkIn >= checkOut) {
-      return res.status(400).json({
-        success: false,
-        message: 'La date de départ doit être postérieure à la date d\'arrivée'
-      });
-    }
-
-    // Vérifier la chambre
-    const room = await Room.findByPk(roomId);
-    if (!room) {
-      return res.status(404).json({
-        success: false,
-        message: 'Chambre non trouvée'
-      });
-    }
-
-    // Calculer le prix
-    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-    const basePrice = room.basePrice * nights;
-    const extraAdults = Math.max(0, numberOfAdults - room.capacity);
-    const extraPrice = extraAdults * room.extraPersonPrice * nights;
-    const totalPrice = basePrice + extraPrice;
-
-    res.json({
-      success: true,
-      data: {
-        totalPrice,
-        priceDetails: {
-          basePrice: room.basePrice,
-          extraPersonPrice: room.extraPersonPrice,
-          nights,
-          capacity: room.capacity,
-          extraAdults
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Erreur lors du calcul du prix:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors du calcul du prix'
+      message: 'Erreur lors de la mise à jour du paiement'
     });
   }
 };
@@ -975,6 +1044,56 @@ exports.calculateDeposit = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors du calcul de l\'acompte'
+    });
+  }
+};
+
+// Ajout d'un paiement partiel
+exports.addPartialPayment = async (req, res) => {
+  try {
+    const { amount, paymentMethod, paymentDate } = req.body;
+    const reservation = await Reservation.findByPk(req.params.id);
+
+    if (!reservation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Réservation non trouvée'
+      });
+    }
+
+    // Ajouter le paiement partiel au montant existant
+    const newDepositAmount = (reservation.depositAmount || 0) + amount;
+    const currentDate = paymentDate || new Date().toISOString().split('T')[0];
+
+    // Mettre à jour le statut de paiement si nécessaire
+    let paymentStatus = reservation.paymentStatus;
+    if (newDepositAmount >= reservation.totalPrice) {
+      paymentStatus = 'PAID';
+    } else if (newDepositAmount > 0) {
+      paymentStatus = 'DEPOSIT_PAID';
+    }
+
+    await reservation.update({
+      depositAmount: newDepositAmount,
+      paymentMethod,
+      paymentDate: currentDate,
+      paymentStatus
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        depositAmount: newDepositAmount,
+        paymentMethod,
+        paymentDate: currentDate,
+        paymentStatus
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout du paiement partiel:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'ajout du paiement partiel'
     });
   }
 }; 
