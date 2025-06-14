@@ -1,4 +1,4 @@
-const sequelize = require('./src/config/database');
+const {sequelize} = require('./src/config/database');
 const { User, Room, Reservation } = require('./src/models');
 
 async function initializeDatabase() {
