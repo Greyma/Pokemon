@@ -34,6 +34,16 @@ const Reservation = sequelize.define('Reservation', {
     type: DataTypes.DATE,
     allowNull: false
   },
+  dateEntreeReelle: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Date réelle d\'entrée du client'
+  },
+  dateSortieReelle: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Date réelle de sortie du client'
+  },
   nombrePersonnes: {
     type: DataTypes.INTEGER,
     allowNull: false,
@@ -106,6 +116,9 @@ const Reservation = sequelize.define('Reservation', {
     checkDates() {
       if (this.dateEntree >= this.dateSortie) {
         throw new Error('La date de départ doit être postérieure à la date d\'arrivée');
+      }
+      if (this.dateEntreeReelle && this.dateSortieReelle && this.dateEntreeReelle >= this.dateSortieReelle) {
+        throw new Error('La date de sortie réelle doit être postérieure à la date d\'entrée réelle');
       }
     }
   }

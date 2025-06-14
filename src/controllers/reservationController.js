@@ -140,7 +140,7 @@ exports.createReservation = async (req, res) => {
       nomGarant: nomGarant || '',
       remarques: remarques || '',
       receptionnisteId,
-      statut: statut || 'validee',
+      statut: statut || 'en_cours',
       dateCreation: new Date(),
       receptionniste,
       preuvePaiement: preuvePaiementPath
@@ -311,6 +311,22 @@ exports.updateStatus = async (req, res) => {
       });
     }
 
+    // Vérifier si c'est une tentative d'annulation
+    if (statut === 'annulee') {
+      const dateReservation = new Date(reservation.dateCreation);
+      const maintenant = new Date();
+      const differenceHeures = (maintenant - dateReservation) / (1000 * 60 * 60);
+
+      // Si c'est un réceptionniste, vérifier le délai de 48h
+      if (req.user.role === 'RECEPTIONIST' && differenceHeures > 48) {
+        return res.status(403).json({
+          success: false,
+          message: 'Impossible d\'annuler la réservation après 48h. Veuillez contacter le manager.'
+        });
+      }
+    }
+
+    // Mettre à jour le statut
     await reservation.update({ statut });
 
     res.status(200).json({
@@ -454,6 +470,44 @@ exports.uploadPdf = async (req, res) => {
   }
 };
 
+// Mettre à jour les dates réelles d'entrée/sortie
+exports.updateRealDates = async (req, res) => {
+  try {
+    const { dateEntreeReelle, dateSortieReelle } = req.body;
+    const reservation = await Reservation.findByPk(req.params.id);
+
+    if (!reservation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Réservation non trouvée'
+      });
+    }
+
+    // Mettre à jour les dates réelles
+    const updates = {};
+    if (dateEntreeReelle) updates.dateEntreeReelle = new Date(dateEntreeReelle);
+    if (dateSortieReelle) updates.dateSortieReelle = new Date(dateSortieReelle);
+
+    // Mettre à jour le statut uniquement si la date de sortie est fournie
+    if (dateSortieReelle) {
+      updates.statut = 'terminee';
+    }
+
+    await reservation.update(updates);
+
+    res.status(200).json({
+      success: true,
+      data: reservation
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des dates réelles:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour des dates réelles'
+    });
+  }
+};
+
 // Obtenir les chambres disponibles
 exports.getAvailableRooms = async (req, res) => {
   try {
@@ -494,7 +548,7 @@ exports.getAvailableRooms = async (req, res) => {
           }
         ],
         statut: {
-          [Op.notIn]: ['annulee']
+          [Op.notIn]: ['annulee', 'terminee'] // Exclure les réservations annulées et terminées
         }
       },
       attributes: ['chambreId']

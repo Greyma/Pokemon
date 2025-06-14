@@ -1,41 +1,78 @@
 const jwt = require('jsonwebtoken');
+const config = require('../config/config');
 
-const authenticateToken = (req, res, next) => {
+// Middleware pour vérifier le token JWT
+exports.authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     return res.status(401).json({
-      status: 'error',
+      success: false,
       message: 'Token d\'authentification manquant'
     });
   }
 
-  try {
-    const user = jwt.verify(token, process.env.JWT_SECRET);
+  jwt.verify(token, config.jwtSecret, (err, user) => {
+    if (err) {
+      return res.status(403).json({
+        success: false,
+        message: 'Token invalide ou expiré'
+      });
+    }
     req.user = user;
     next();
-  } catch (error) {
-    return res.status(403).json({
-      status: 'error',
-      message: 'Token invalide'
+  });
+};
+
+// Middleware pour vérifier si l'utilisateur est un manager
+exports.isManager = (req, res, next) => {
+  if (req.user && req.user.role === 'MANAGER') {
+    next();
+  } else {
+    res.status(403).json({
+      success: false,
+      message: 'Accès refusé. Droits de manager requis.'
     });
   }
 };
 
-const authorizeRole = (roles) => {
+// Middleware pour vérifier si l'utilisateur est un réceptionniste
+exports.isReceptionist = (req, res, next) => {
+  if (req.user && req.user.role === 'RECEPTIONIST') {
+    next();
+  } else {
+    res.status(403).json({
+      success: false,
+      message: 'Accès refusé. Droits de réceptionniste requis.'
+    });
+  }
+};
+
+// Middleware pour vérifier si l'utilisateur a le rôle requis
+exports.hasRole = (roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Accès non autorisé'
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Utilisateur non authentifié'
       });
     }
-    next();
+
+    if (roles.includes(req.user.role)) {
+      next();
+    } else {
+      res.status(403).json({
+        success: false,
+        message: 'Accès refusé. Rôle non autorisé.'
+      });
+    }
   };
 };
 
 module.exports = {
   authenticateToken,
-  authorizeRole
+  isManager,
+  isReceptionist,
+  hasRole
 }; 
