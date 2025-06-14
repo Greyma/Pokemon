@@ -497,7 +497,9 @@ http://localhost:3001/uploads/payments/{fileName}
 
 ### Rôles et Permissions
 1. **Manager** :
-   - Accès complet à toutes les fonctionnalités
+   - Accès complet à toutes les fonctionnalités du système
+   - Peut effectuer toutes les opérations de réservation
+   - Peut gérer les paiements et les preuves de paiement
    - Peut annuler les réservations à tout moment
    - Peut gérer les utilisateurs
 
@@ -510,24 +512,204 @@ http://localhost:3001/uploads/payments/{fileName}
 ### Routes Protégées
 ```javascript
 // Routes accessibles à tous les utilisateurs authentifiés
-GET /api/reservations/rooms
-GET /api/reservations
-GET /api/reservations/:id
-POST /api/reservations/calculate-price
-POST /api/reservations/calculate-deposit
+GET /api/reservations/rooms          // Recherche de chambres disponibles
+GET /api/reservations               // Liste des réservations
+GET /api/reservations/:id           // Détails d'une réservation
+POST /api/reservations/calculate-price    // Calcul du prix
+POST /api/reservations/calculate-deposit  // Calcul de l'acompte
 
-// Routes nécessitant des droits de réceptionniste
-POST /api/reservations
-PATCH /api/reservations/:id/real-dates
-POST /api/reservations/:id/payments
-POST /api/reservations/upload/payment-proof
-
-// Routes nécessitant des droits de manager ou réceptionniste
-PATCH /api/reservations/:id/status
+// Routes accessibles aux réceptionnistes et managers
+POST /api/reservations              // Création d'une réservation
+PATCH /api/reservations/:id/real-dates    // Mise à jour des dates réelles
+POST /api/reservations/:id/payments       // Ajout d'un paiement
+POST /api/reservations/upload/payment-proof // Upload d'une preuve de paiement
+PATCH /api/reservations/:id/status        // Mise à jour du statut
 ```
 
 ### Headers Requis
 ```http
 Authorization: Bearer <token>
 Content-Type: application/json
+```
+
+## Recherche de Chambres Disponibles
+
+### Endpoint
+```http
+GET /api/reservations/rooms
+```
+
+### Paramètres de Requête
+| Paramètre | Type | Description | Obligatoire |
+|-----------|------|-------------|-------------|
+| checkIn | string | Date d'arrivée (format: YYYY-MM-DD) | Oui |
+| checkOut | string | Date de départ (format: YYYY-MM-DD) | Oui |
+
+### Exemple de Requête
+```http
+GET /api/reservations/rooms?checkIn=2024-03-20&checkOut=2024-03-22
+Authorization: Bearer <token>
+```
+
+### Réponse Succès
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "CH001",
+      "number": "101",
+      "type": "STANDARD",
+      "basePrice": 10000,
+      "extraPersonPrice": 2000,
+      "capacity": 2
+    },
+    {
+      "id": "CH002",
+      "number": "201",
+      "type": "VIP",
+      "basePrice": 15000,
+      "extraPersonPrice": 3000,
+      "capacity": 3
+    }
+  ]
+}
+```
+
+### Réponse Erreur
+```json
+{
+  "success": false,
+  "message": "Les dates de check-in et check-out sont requises"
+}
+```
+ou
+```json
+{
+  "success": false,
+  "message": "La date de check-out doit être postérieure à la date de check-in"
+}
+```
+
+### Notes
+- Les chambres retournées sont celles qui sont :
+  - Actives (`isActive: true`)
+  - Non réservées pour la période demandée
+  - Non en maintenance
+- Les réservations annulées ou terminées ne sont pas prises en compte
+- Les dates doivent être valides et le check-out doit être postérieur au check-in
+
+### Exemple d'Utilisation avec Axios
+```javascript
+const searchAvailableRooms = async (checkIn, checkOut) => {
+  try {
+    const response = await axios.get('/api/reservations/rooms', {
+      params: {
+        checkIn: checkIn,
+        checkOut: checkOut
+      },
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    return response.data.data;
+  } catch (error) {
+    console.error('Erreur lors de la recherche des chambres:', error.response.data);
+    throw error;
+  }
+};
+
+// Utilisation
+const rooms = await searchAvailableRooms('2024-03-20', '2024-03-22');
+```
+
+## Historique des Réservations par Chambre
+
+### Endpoint
+```http
+GET /api/reservations/room/:roomId/reservations
+```
+
+### Paramètres
+| Paramètre | Type | Description |
+|-----------|------|-------------|
+| roomId | string | Identifiant de la chambre |
+
+### Exemple de Requête
+```http
+GET /api/reservations/room/CH001/reservations
+Authorization: Bearer <token>
+```
+
+### Réponse Succès
+```json
+{
+  "success": true,
+  "data": {
+    "room": {
+      "id": "CH001",
+      "number": "101",
+      "type": "STANDARD"
+    },
+    "stats": {
+      "total": 10,
+      "enCours": 2,
+      "validees": 3,
+      "terminees": 4,
+      "annulees": 1
+    },
+    "reservations": [
+      {
+        "reservationId": "RES001",
+        "nomClient": "Ahmed Benali",
+        "dateEntree": "2024-03-20T14:00:00.000Z",
+        "dateSortie": "2024-03-22T12:00:00.000Z",
+        "statut": "validee",
+        "montantTotal": 50000,
+        "creator": {
+          "id": "USR001",
+          "nom": "Dupont",
+          "prenom": "Jean"
+        }
+      }
+      // ... autres réservations
+    ]
+  }
+}
+```
+
+### Réponse Erreur
+```json
+{
+  "success": false,
+  "message": "Chambre non trouvée"
+}
+```
+
+### Notes
+- Les réservations sont triées par date de création (du plus récent au plus ancien)
+- Les statistiques incluent le nombre total de réservations et leur répartition par statut
+- Les informations du créateur de la réservation sont incluses
+
+### Exemple d'Utilisation avec Axios
+```javascript
+const getRoomReservations = async (roomId) => {
+  try {
+    const response = await axios.get(`/api/reservations/room/${roomId}/reservations`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    return response.data.data;
+  } catch (error) {
+    console.error('Erreur lors de la récupération des réservations:', error.response.data);
+    throw error;
+  }
+};
+
+// Utilisation
+const roomData = await getRoomReservations('CH001');
+console.log(`Statistiques de la chambre ${roomData.room.number}:`, roomData.stats);
 ```

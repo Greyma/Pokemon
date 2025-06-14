@@ -858,4 +858,65 @@ exports.addPartialPayment = async (req, res) => {
       message: 'Erreur lors de l\'ajout du paiement partiel'
     });
   }
+};
+
+// Obtenir toutes les réservations d'une chambre
+exports.getRoomReservations = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+
+    // Vérifier si la chambre existe
+    const room = await Room.findByPk(roomId);
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chambre non trouvée'
+      });
+    }
+
+    // Récupérer toutes les réservations de la chambre
+    const reservations = await Reservation.findAll({
+      where: {
+        chambreId: roomId
+      },
+      order: [
+        ['dateCreation', 'DESC']
+      ],
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'nom', 'prenom']
+        }
+      ]
+    });
+
+    // Calculer les statistiques
+    const stats = {
+      total: reservations.length,
+      enCours: reservations.filter(r => r.statut === 'en_cours').length,
+      validees: reservations.filter(r => r.statut === 'validee').length,
+      terminees: reservations.filter(r => r.statut === 'terminee').length,
+      annulees: reservations.filter(r => r.statut === 'annulee').length
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        room: {
+          id: room.id,
+          number: room.number,
+          type: room.type
+        },
+        stats,
+        reservations
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des réservations de la chambre:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des réservations de la chambre'
+    });
+  }
 }; 

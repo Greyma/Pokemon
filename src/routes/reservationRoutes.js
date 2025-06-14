@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const reservationController = require('../controllers/reservationController');
-const { authenticateToken, isManager, isReceptionist, hasRole } = require('../middleware/auth');
+const { authenticateToken, hasRole } = require('../middleware/auth');
 
 // Routes protégées par l'authentification
 router.use(authenticateToken);
@@ -10,16 +10,17 @@ router.use(authenticateToken);
 router.get('/rooms', reservationController.getAvailableRooms);
 router.get('/', reservationController.getAllReservations);
 router.get('/:id', reservationController.getReservationById);
+router.get('/room/:roomId/reservations', reservationController.getRoomReservations);
 router.post('/calculate-price', reservationController.calculatePrice);
 router.post('/calculate-deposit', reservationController.calculateDeposit);
 
-// Routes nécessitant des droits de réceptionniste
-router.post('/', isReceptionist, reservationController.createReservation);
-router.patch('/:id/real-dates', isReceptionist, reservationController.updateRealDates);
-router.post('/:id/payments', isReceptionist, reservationController.addPayment);
-router.post('/upload/payment-proof', isReceptionist, reservationController.uploadPdf);
+// Routes accessibles aux réceptionnistes et managers
+router.post('/', hasRole(['RECEPTIONIST', 'MANAGER']), reservationController.createReservation);
+router.patch('/:id/real-dates', hasRole(['RECEPTIONIST', 'MANAGER']), reservationController.updateRealDates);
+router.post('/:id/payments', hasRole(['RECEPTIONIST', 'MANAGER']), reservationController.addPayment);
+router.post('/upload/payment-proof', hasRole(['RECEPTIONIST', 'MANAGER']), reservationController.uploadPdf);
 
-// Routes nécessitant des droits de manager
+// Routes nécessitant des droits de manager ou réceptionniste
 router.patch('/:id/status', hasRole(['MANAGER', 'RECEPTIONIST']), reservationController.updateStatus);
 
 module.exports = router; 
