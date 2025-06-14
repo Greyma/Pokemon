@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const config = require('../config/config');
+const config = require('../config/database');
 
 // Middleware pour vérifier le token JWT
 exports.authenticateToken = (req, res, next) => {
@@ -69,10 +69,3 @@ exports.hasRole = (roles) => {
     }
   };
 };
-
-module.exports = {
-  authenticateToken,
-  isManager,
-  isReceptionist,
-  hasRole
-}; 

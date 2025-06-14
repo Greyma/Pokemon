@@ -1,17 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const statisticsController = require('../controllers/statisticsController');
-const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const { authenticateToken, hasRole } = require('../middleware/auth');
 const { Room, Reservation, User } = require('../models');
 const { Op } = require('sequelize');
 
 router.use(authenticateToken);
 
 // Statistiques de revenus
-router.get('/revenue', authorizeRole('MANAGER'), statisticsController.getRevenueStats);
+router.get('/revenue', hasRole('MANAGER'), statisticsController.getRevenueStats);
 
 // Statistiques d'occupation
-router.get('/occupation', authorizeRole('MANAGER'), async (req, res) => {
+router.get('/occupation', hasRole('MANAGER'), async (req, res) => {
   try {
     const totalRooms = await Room.count();
     const occupiedRooms = await Room.count({
@@ -41,7 +41,7 @@ router.get('/occupation', authorizeRole('MANAGER'), async (req, res) => {
 });
 
 // Statistiques par type de chambre
-router.get('/by-room-type', authorizeRole('MANAGER'), async (req, res) => {
+router.get('/by-room-type', hasRole('MANAGER'), async (req, res) => {
   try {
     const roomTypes = await Room.findAll({
       attributes: ['type'],
@@ -80,7 +80,7 @@ router.get('/by-room-type', authorizeRole('MANAGER'), async (req, res) => {
 });
 
 // Statistiques des clients
-router.get('/clients', authorizeRole('MANAGER'), async (req, res) => {
+router.get('/clients', hasRole('MANAGER'), async (req, res) => {
   try {
     const totalClients = await User.count({
       where: { role: 'CLIENT' }
@@ -123,6 +123,6 @@ router.get('/clients', authorizeRole('MANAGER'), async (req, res) => {
 });
 
 // Statistiques des chambres populaires
-router.get('/popular-rooms', authorizeRole('MANAGER'), statisticsController.getPopularRoomsStats);
+router.get('/popular-rooms', hasRole('MANAGER'), statisticsController.getPopularRoomsStats);
 
 module.exports = router;

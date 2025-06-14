@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { generateActivityPDF } = require('../controllers/activityController');
-const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const { authenticateToken, hasRole } = require('../middleware/auth');
 
 // Route pour générer les PDFs des activités
 router.post('/generate-pdf', 
   authenticateToken, 
-  authorizeRole(['MANAGER']), 
+  hasRole(['MANAGER']), 
   generateActivityPDF
 );
 
