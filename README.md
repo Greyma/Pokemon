@@ -136,6 +136,104 @@ Ajoute un paiement à une réservation.
 }
 ```
 
+### Statuts des Réservations
+- `validee` : Réservation confirmée et totalement payée
+- `en_cours` : Réservation en attente de paiement total
+- `terminee` : Séjour terminé
+- `annulee` : Réservation annulée
+
+### Gestion Automatique des Statuts
+Le système gère automatiquement les statuts en fonction des paiements :
+
+1. **Création de la réservation** :
+   - Si le montant total est payé : statut = `validee`
+   - Si le montant total n'est pas payé : statut = `en_cours`
+
+2. **Ajout d'un paiement** :
+   - Le système recalcule le total des paiements
+   - Si le total atteint ou dépasse le montant total : statut = `validee`
+   - Sinon : statut = `en_cours`
+
+### Exemple de Création avec Paiement
+```http
+POST /api/reservations
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "reservationId": "RES001",
+  "nomClient": "Ahmed Benali",
+  "montantTotal": 50000,
+  "paiements": [
+    {
+      "paiementId": "PAY001",
+      "methodePaiement": "especes",
+      "montant": 50000,
+      "datePaiement": "2024-03-20T14:00:00.000Z"
+    }
+  ]
+  // ... autres champs ...
+}
+```
+
+### Exemple d'Ajout de Paiement
+```http
+POST /api/reservations/RES001/payments
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "paiementId": "PAY002",
+  "methodePaiement": "especes",
+  "montant": 25000,
+  "datePaiement": "2024-03-21T10:00:00.000Z"
+}
+```
+
+### Dates de Réservation
+Chaque réservation contient deux types de dates :
+1. **Dates prévues** :
+   - `dateEntree` : Date d'arrivée prévue
+   - `dateSortie` : Date de départ prévue
+
+2. **Dates réelles** :
+   - `dateEntreeReelle` : Date effective d'arrivée du client
+   - `dateSortieReelle` : Date effective de départ du client
+
+### Mise à jour des Dates Réelles
+```http
+PATCH /api/reservations/:id/real-dates
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "dateEntreeReelle": "2024-03-20T14:00:00.000Z",
+  "dateSortieReelle": "2024-03-22T12:00:00.000Z"
+}
+```
+
+Le statut est automatiquement mis à jour :
+- `terminee` lorsque la date de sortie réelle est enregistrée
+
+### Annulation des Réservations
+```http
+PATCH /api/reservations/:id/status
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "statut": "annulee"
+}
+```
+
+Règles d'annulation selon le rôle :
+- **Réceptionniste** : 
+  - Peut annuler uniquement dans les 48h suivant la création de la réservation
+  - Message d'erreur : "Impossible d'annuler la réservation après 48h. Veuillez contacter le manager."
+- **Manager** :
+  - Peut annuler à tout moment
+  - Aucune restriction de délai
+
 ## Gestion des Utilisateurs
 
 ### Routes des utilisateurs
@@ -393,4 +491,43 @@ Les fichiers sont nommés selon le format suivant :
 Les fichiers PDF sont accessibles via l'URL :
 ```
 http://localhost:3001/uploads/payments/{fileName}
+```
+
+## Sécurité et Authentification
+
+### Rôles et Permissions
+1. **Manager** :
+   - Accès complet à toutes les fonctionnalités
+   - Peut annuler les réservations à tout moment
+   - Peut gérer les utilisateurs
+
+2. **Réceptionniste** :
+   - Peut créer et gérer les réservations
+   - Peut enregistrer les entrées/sorties des clients
+   - Peut gérer les paiements
+   - Annulation limitée aux 48h
+
+### Routes Protégées
+```javascript
+// Routes accessibles à tous les utilisateurs authentifiés
+GET /api/reservations/rooms
+GET /api/reservations
+GET /api/reservations/:id
+POST /api/reservations/calculate-price
+POST /api/reservations/calculate-deposit
+
+// Routes nécessitant des droits de réceptionniste
+POST /api/reservations
+PATCH /api/reservations/:id/real-dates
+POST /api/reservations/:id/payments
+POST /api/reservations/upload/payment-proof
+
+// Routes nécessitant des droits de manager ou réceptionniste
+PATCH /api/reservations/:id/status
+```
+
+### Headers Requis
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
 ```

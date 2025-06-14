@@ -24,7 +24,6 @@ exports.createReservation = async (req, res) => {
       nomGarant,
       remarques,
       receptionnisteId,
-      statut,
       receptionniste
     } = req.body;
 
@@ -122,6 +121,12 @@ exports.createReservation = async (req, res) => {
       preuvePaiementPath = `/uploads/payments/${fileName}`;
     }
 
+    // Calculer le montant total des paiements
+    const totalPaiements = paiements ? paiements.reduce((sum, paiement) => sum + paiement.montant, 0) : 0;
+    
+    // Déterminer le statut initial en fonction des paiements
+    const statut = totalPaiements >= montantTotal ? 'validee' : 'en_cours';
+
     // Créer la réservation
     const reservation = await Reservation.create({
       reservationId,
@@ -140,7 +145,7 @@ exports.createReservation = async (req, res) => {
       nomGarant: nomGarant || '',
       remarques: remarques || '',
       receptionnisteId,
-      statut: statut || 'en_cours',
+      statut,
       dateCreation: new Date(),
       receptionniste,
       preuvePaiement: preuvePaiementPath
@@ -375,7 +380,17 @@ exports.addPayment = async (req, res) => {
     };
 
     const paiements = [...reservation.paiements, newPayment];
-    await reservation.update({ paiements });
+    
+    // Calculer le total des paiements
+    const totalPaiements = paiements.reduce((sum, paiement) => sum + paiement.montant, 0);
+    
+    // Mettre à jour le statut en fonction du total des paiements
+    const statut = totalPaiements >= reservation.montantTotal ? 'validee' : 'en_cours';
+
+    await reservation.update({ 
+      paiements,
+      statut
+    });
 
     res.status(200).json({
       success: true,
