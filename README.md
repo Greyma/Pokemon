@@ -322,3 +322,75 @@ const response = await axios.post('/api/reservations/calculate-deposit', {
   numberOfChildren: 0
 });
 ```
+
+## Gestion des Fichiers
+
+### Upload des Preuves de Paiement
+
+Il y a deux façons d'envoyer une preuve de paiement :
+
+1. **Lors de la création de la réservation** :
+   - Envoyer le fichier PDF directement avec les données de réservation
+   - Utiliser `multipart/form-data` avec le champ `preuvePaiement` pour le fichier
+
+```javascript
+// Exemple de création de réservation avec preuve de paiement
+const formData = new FormData();
+formData.append('reservationId', 'RES001');
+formData.append('nomClient', 'Ahmed Benali');
+// ... autres champs de réservation ...
+formData.append('preuvePaiement', pdfFile); // Fichier PDF
+
+const response = await axios.post('/api/reservations', formData, {
+  headers: {
+    'Content-Type': 'multipart/form-data'
+  }
+});
+```
+
+2. **Pour une réservation existante** :
+   - Utiliser l'endpoint dédié `/api/reservations/upload/payment-proof`
+   - Nécessite l'ID de la réservation et l'ID du paiement
+
+```javascript
+const formData = new FormData();
+formData.append('file', pdfFile);
+formData.append('reservationId', 'RES001');
+formData.append('paymentId', 'PAY001');
+
+const response = await axios.post('/api/reservations/upload/payment-proof', formData, {
+  headers: {
+    'Content-Type': 'multipart/form-data'
+  }
+});
+```
+
+### Structure des Dossiers
+
+Les fichiers PDF sont stockés dans la structure suivante :
+```
+/uploads/
+  └── payments/
+      ├── RES001_20250609.pdf
+      ├── RES001_PAY001_20250610.pdf
+      └── ...
+```
+
+### Format des Noms de Fichiers
+
+Les fichiers sont nommés selon le format suivant :
+- Pour les réservations : `{reservationId}_{timestamp}.pdf`
+- Pour les paiements : `{reservationId}_{paymentId}_{timestamp}.pdf`
+
+### Limitations
+
+- Taille maximale du fichier : 5MB
+- Format accepté : PDF uniquement
+- Nombre maximum de fichiers par paiement : 1
+
+### Accès aux Fichiers
+
+Les fichiers PDF sont accessibles via l'URL :
+```
+http://localhost:3001/uploads/payments/{fileName}
+```

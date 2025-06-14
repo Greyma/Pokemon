@@ -85,6 +85,43 @@ exports.createReservation = async (req, res) => {
       });
     }
 
+    // Gérer l'upload du fichier PDF si présent
+    let preuvePaiementPath = null;
+    if (req.files && req.files.preuvePaiement) {
+      const file = req.files.preuvePaiement;
+
+      // Vérifier le type de fichier
+      if (file.mimetype !== 'application/pdf') {
+        return res.status(400).json({
+          success: false,
+          message: 'Seuls les fichiers PDF sont acceptés'
+        });
+      }
+
+      // Vérifier la taille du fichier (max 5MB)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        return res.status(400).json({
+          success: false,
+          message: 'Le fichier est trop volumineux (max 5MB)'
+        });
+      }
+
+      // Créer le dossier uploads/payments s'il n'existe pas
+      const uploadDir = path.join(__dirname, '../uploads/payments');
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      // Générer un nom de fichier unique
+      const fileName = `${reservationId}_${Date.now()}.pdf`;
+      const filePath = path.join(uploadDir, fileName);
+
+      // Sauvegarder le fichier
+      await file.mv(filePath);
+
+      // Stocker le chemin relatif
+      preuvePaiementPath = `/uploads/payments/${fileName}`;
+    }
+
     // Créer la réservation
     const reservation = await Reservation.create({
       reservationId,
@@ -105,7 +142,8 @@ exports.createReservation = async (req, res) => {
       receptionnisteId,
       statut: statut || 'validee',
       dateCreation: new Date(),
-      receptionniste
+      receptionniste,
+      preuvePaiement: preuvePaiementPath
     });
 
     // Mettre à jour le statut de la chambre
@@ -336,225 +374,82 @@ exports.addPayment = async (req, res) => {
   }
 };
 
-// Upload du justificatif CCP
+// Upload du justificatif de paiement
 exports.uploadPdf = async (req, res) => {
   try {
     console.log('📁 Début de l\'upload PDF');
-    console.log('📦 Données reçues:', {
-      body: req.body,
-      files: req.files ? Object.keys(req.files) : 'Aucun fichier',
-      fileExists: req.files && req.files.file ? 'Oui' : 'Non',
-      headers: req.headers['content-type']
-    });
 
     // Vérifier le type de contenu
     if (!req.headers['content-type']?.includes('multipart/form-data')) {
-      console.log('❌ Erreur: Type de contenu invalide');
       return res.status(400).json({
-        status: 'error',
-        message: 'Type de contenu invalide. Utilisez multipart/form-data',
-        details: {
-          receivedContentType: req.headers['content-type'],
-          expectedContentType: 'multipart/form-data'
-        }
+        success: false,
+        message: 'Type de contenu invalide. Utilisez multipart/form-data'
       });
     }
 
     // Vérifier si req.files existe
-    if (!req.files) {
-      console.log('❌ Erreur: req.files est undefined');
+    if (!req.files || !req.files.file) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Aucun fichier n\'a été uploadé',
-        details: {
-          reason: 'La requête ne contient pas de fichiers',
-          headers: req.headers
-        }
+        success: false,
+        message: 'Aucun fichier n\'a été uploadé'
       });
     }
 
-    // Vérifier si le fichier existe dans req.files
-    if (!req.files.file) {
-      console.log('❌ Erreur: req.files.file est undefined');
-      return res.status(400).json({
-        status: 'error',
-        message: 'Aucun fichier n\'a été uploadé',
-        details: {
-          reason: 'Le champ "file" est manquant dans la requête',
-          availableFiles: Object.keys(req.files)
-        }
-      });
-    }
-
-    const { reservationId } = req.body;
+    const { reservationId, paymentId } = req.body;
     const file = req.files.file;
-
-    console.log('📄 Détails du fichier:', {
-      name: file.name,
-      type: file.mimetype,
-      size: file.size,
-      data: file.data ? 'Présent' : 'Absent'
-    });
 
     // Vérifier le type de fichier
     if (file.mimetype !== 'application/pdf') {
-      console.log('❌ Erreur: Type de fichier invalide:', file.mimetype);
       return res.status(400).json({
-        status: 'error',
-        message: 'Seuls les fichiers PDF sont acceptés',
-        details: {
-          receivedType: file.mimetype,
-          fileName: file.name,
-          fileSize: file.size
-        }
+        success: false,
+        message: 'Seuls les fichiers PDF sont acceptés'
       });
     }
 
-    // Vérifier la taille du fichier (max 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    // Vérifier la taille du fichier (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      console.log('❌ Erreur: Fichier trop volumineux');
       return res.status(400).json({
-        status: 'error',
-        message: 'Le fichier est trop volumineux',
-        details: {
-          maxSize: '10MB',
-          receivedSize: `${(file.size / (1024 * 1024)).toFixed(2)}MB`
-        }
-      });
-    }
-
-    // Pour les tests, on accepte un reservationId null
-    if (!reservationId && process.env.NODE_ENV === 'test') {
-      console.log('✅ Mode test: Acceptation du reservationId null');
-      return res.json({
-        status: 'success',
-        data: {
-          message: 'Fichier uploadé avec succès',
-          fileName: 'test.pdf',
-          fileDetails: {
-            name: file.name,
-            type: file.mimetype,
-            size: file.size
-          }
-        }
-      });
-    }
-
-    if (!reservationId) {
-      console.log('❌ Erreur: ID de réservation manquant');
-      return res.status(400).json({
-        status: 'error',
-        message: 'ID de réservation manquant',
-        details: {
-          receivedBody: req.body
-        }
+        success: false,
+        message: 'Le fichier est trop volumineux (max 5MB)'
       });
     }
 
     // Vérifier que la réservation existe
     const reservation = await Reservation.findByPk(reservationId);
     if (!reservation) {
-      console.log('❌ Erreur: Réservation non trouvée:', reservationId);
       return res.status(404).json({
-        status: 'error',
-        message: 'Réservation non trouvée',
-        details: {
-          reservationId,
-          reason: 'Aucune réservation trouvée avec cet ID'
-        }
+        success: false,
+        message: 'Réservation non trouvée'
       });
     }
 
-    // Créer le dossier uploads s'il n'existe pas
-    const uploadDir = path.join(__dirname, '../uploads');
-    console.log('📁 Création du dossier uploads:', uploadDir);
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-    } catch (error) {
-      console.error('❌ Erreur lors de la création du dossier:', error);
-      return res.status(500).json({
-        status: 'error',
-        message: 'Erreur lors de la création du dossier d\'upload',
-        details: {
-          path: uploadDir,
-          error: error.message
-        }
-      });
-    }
+    // Créer le dossier uploads/payments s'il n'existe pas
+    const uploadDir = path.join(__dirname, '../uploads/payments');
+    await fs.mkdir(uploadDir, { recursive: true });
 
     // Générer un nom de fichier unique
-    const fileName = `${reservationId}-${Date.now()}.pdf`;
+    const fileName = `${reservationId}_${paymentId}_${Date.now()}.pdf`;
     const filePath = path.join(uploadDir, fileName);
-    console.log('📝 Sauvegarde du fichier:', filePath);
 
     // Sauvegarder le fichier
-    try {
-      await file.mv(filePath);
-      console.log('✅ Fichier sauvegardé avec succès');
-    } catch (error) {
-      console.error('❌ Erreur lors de la sauvegarde du fichier:', error);
-      return res.status(500).json({
-        status: 'error',
-        message: 'Erreur lors de la sauvegarde du fichier',
-        details: {
-          path: filePath,
-          error: error.message
-        }
-      });
-    }
+    await file.mv(filePath);
 
-    // Mettre à jour le chemin du fichier dans la réservation
-    try {
-      await reservation.update({
-        ccpProofPath: fileName
-      });
-      console.log('✅ Chemin du fichier mis à jour dans la réservation');
-    } catch (error) {
-      console.error('❌ Erreur lors de la mise à jour de la réservation:', error);
-      // On supprime le fichier uploadé car la mise à jour a échoué
-      try {
-        await fs.unlink(filePath);
-      } catch (unlinkError) {
-        console.error('❌ Erreur lors de la suppression du fichier:', unlinkError);
-      }
-      return res.status(500).json({
-        status: 'error',
-        message: 'Erreur lors de la mise à jour de la réservation',
-        details: {
-          reservationId,
-          error: error.message
-        }
-      });
-    }
+    // Retourner le chemin relatif du fichier
+    const relativePath = `/uploads/payments/${fileName}`;
 
     res.json({
-      status: 'success',
+      success: true,
       data: {
-        message: 'Fichier uploadé avec succès',
-        fileName,
-        fileDetails: {
-          name: file.name,
-          type: file.mimetype,
-          size: file.size,
-          path: filePath
-        }
+        filePath: relativePath,
+        fileName: fileName
       }
     });
   } catch (error) {
-    console.error('❌ Erreur lors de l\'upload du PDF:', {
-      message: error.message,
-      stack: error.stack,
-      code: error.code
-    });
+    console.error('Erreur lors de l\'upload du PDF:', error);
     res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de l\'upload du PDF',
-      details: {
-        error: error.message,
-        code: error.code,
-        timestamp: new Date().toISOString()
-      }
+      success: false,
+      message: 'Erreur lors de l\'upload du PDF'
     });
   }
 };

@@ -60,7 +60,19 @@ const Reservation = sequelize.define('Reservation', {
   paiements: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: [],
+    get() {
+      const rawValue = this.getDataValue('paiements');
+      return rawValue ? JSON.parse(JSON.stringify(rawValue)) : [];
+    },
+    set(value) {
+      this.setDataValue('paiements', value);
+    }
+  },
+  preuvePaiement: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Chemin vers le fichier PDF de la preuve de paiement'
   },
   nomGarant: {
     type: DataTypes.STRING,

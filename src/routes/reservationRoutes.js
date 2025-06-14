@@ -21,6 +21,9 @@ router.patch('/:id/status', reservationController.updateStatus);
 // Ajouter un paiement à une réservation
 router.post('/:id/payments', reservationController.addPayment);
 
+// Upload d'une preuve de paiement
+router.post('/upload/payment-proof', reservationController.uploadPdf);
+
 // Calculer le prix d'une réservation
 router.post('/calculate-price', reservationController.calculatePrice);
 
