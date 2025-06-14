@@ -1,474 +1,324 @@
-# Système de Gestion de Complexe Hôtelier
-
-Ce projet est un système de gestion de complexe hôtelier qui permet de gérer les réservations, les chambres et les utilisateurs.
-
-## Fonctionnalités
-
-- Gestion des chambres (VIP et standard)
-- Système de réservation
-- Gestion des utilisateurs (Réceptionniste et Gérant)
-- Système de paiement (CCP et liquide)
-- Statistiques et rapports
-- Gestion des fichiers PDF pour les justificatifs CCP
-
-## Prérequis
-
-- Node.js (v14 ou supérieur)
-- npm ou yarn
-
-## Installation
-
-1. Cloner le repository :
-```bash
-git clone [URL_DU_REPO]
-cd complexe-hotel-backend
-```
-
-2. Installer les dépendances :
-```bash
-npm install
-```
-
-3. Créer un fichier `.env` à la racine du projet avec les variables suivantes :
-```
-JWT_SECRET=votre_secret_jwt_super_securise
-JWT_EXPIRATION=24h
-
-PORT=3000
-NODE_ENV=development
-```
-
-4. Démarrer le serveur :
-```bash
-npm run dev
-```
-
-La base de données SQLite sera automatiquement créée lors du premier démarrage de l'application.
-
-## Structure du Projet
-
-```
-src/
-├── config/         # Configuration de la base de données
-├── middleware/     # Middleware d'authentification
-├── models/         # Modèles de données
-├── routes/         # Routes de l'API
-└── index.js        # Point d'entrée de l'application
-```
-
-## API Endpoints
-
-### Authentification
-- POST /api/auth/login - Connexion
-- GET /api/auth/verify - Vérification du token
-
-### Chambres
-- GET /api/rooms - Liste des chambres
-- GET /api/rooms/available - Chambres disponibles
-- POST /api/rooms - Créer une chambre (Manager)
-- PUT /api/rooms/:id - Mettre à jour une chambre (Manager)
-- DELETE /api/rooms/:id - Désactiver une chambre (Manager)
-
-### Réservations
-- POST /api/reservations - Créer une réservation
-- GET /api/reservations - Liste des réservations
-- GET /api/reservations/:id - Détails d'une réservation
-- PATCH /api/reservations/:id/payment - Mettre à jour le statut de paiement
-- POST /api/reservations/:id/ccp-proof - Upload du justificatif CCP
-
-### Utilisateurs
-- GET /api/users - Liste des utilisateurs (Manager)
-- POST /api/users - Créer un utilisateur (Manager)
-- PUT /api/users/:id - Mettre à jour un utilisateur (Manager)
-- DELETE /api/users/:id - Désactiver un utilisateur (Manager)
-- GET /api/users/stats - Statistiques d'activité (Manager)
-
-## Sécurité
-
-- Authentification JWT
-- Hachage des mots de passe avec bcrypt
-- Validation des données
-- Gestion des rôles (Réceptionniste/Gérant)
-
-## Développement
-
-Pour le développement, le serveur redémarre automatiquement grâce à nodemon.
-
-```bash
-npm run dev
-```
-
-## Production
-
-Pour la production, utilisez :
-
-```bash
-npm start
-```
-
-## Tests
-
-Pour lancer les tests :
-
-```bash
-npm test
-```
-
 # API de Gestion Hôtelière
+
+Cette API permet de gérer un système hôtelier complet avec la gestion des chambres, des réservations, des utilisateurs et des statistiques.
+
+## Configuration
+
+- Port: 3001
+- Base URL: `http://localhost:3001/api`
 
 ## Authentification
 
-### Connexion
-```http
-POST /api/auth/login
+Toutes les routes (sauf `/auth/login`) nécessitent un token JWT dans le header :
 ```
-**Corps de la requête :**
+Authorization: Bearer <token>
+```
+
+### Routes d'authentification
+
+#### POST /auth/login
+Authentifie un utilisateur et retourne un token JWT.
+
 ```json
 {
   "username": "string",
   "password": "string"
 }
 ```
-**Réponse :**
-```json
-{
-  "status": "success",
-  "data": {
-    "token": "string",
-    "user": {
-      "id": "uuid",
-      "username": "string",
-      "role": "MANAGER|RECEPTIONIST"
-    }
-  }
-}
-```
-
-### Vérification du Token
-```http
-GET /api/auth/verify
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Réponse :**
-```json
-{
-  "status": "success",
-  "data": {
-    "user": {
-      "id": "uuid",
-      "role": "MANAGER|RECEPTIONIST"
-    }
-  }
-}
-```
-
-## Gestion des Utilisateurs (Manager uniquement)
-
-### Liste des Utilisateurs
-```http
-GET /api/users
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Réponse :**
-```json
-{
-  "status": "success",
-  "data": [
-    {
-      "id": "uuid",
-      "username": "string",
-      "role": "MANAGER|RECEPTIONIST",
-      "isActive": boolean,
-      "lastLogin": "date",
-      "createdAt": "date"
-    }
-  ]
-}
-```
-
-### Création d'un Utilisateur
-```http
-POST /api/users
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Corps de la requête :**
-```json
-{
-  "username": "string",
-  "password": "string",
-  "role": "MANAGER|RECEPTIONIST"
-}
-```
-**Réponse :**
-```json
-{
-  "status": "success",
-  "data": {
-    "id": "uuid",
-    "username": "string",
-    "role": "MANAGER|RECEPTIONIST"
-  }
-}
-```
-
-### Statistiques des Utilisateurs
-```http
-GET /api/users/stats
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Réponse :**
-```json
-{
-  "status": "success",
-  "data": {
-    "totalUsers": number,
-    "activeUsers": number,
-    "managers": number,
-    "receptionists": number
-  }
-}
-```
 
 ## Gestion des Chambres
 
-### Liste des Chambres
-```http
-GET /api/rooms
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Réponse :**
-```json
-{
-  "status": "success",
-  "data": [
-    {
-      "id": "uuid",
-      "number": "string",
-      "type": "STANDARD|VIP|SUITE",
-      "basePrice": number,
-      "status": "LIBRE|OCCUPEE|MAINTENANCE",
-      "description": "string",
-      "capacity": number,
-      "amenities": ["string"]
-    }
-  ]
-}
-```
+### Routes des chambres
 
-### Création d'une Chambre (Manager uniquement)
-```http
-POST /api/rooms
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Corps de la requête :**
+#### GET /rooms
+Récupère la liste de toutes les chambres.
+
+#### POST /rooms
+Crée une nouvelle chambre (nécessite le rôle MANAGER).
+
 ```json
 {
   "number": "string",
   "type": "STANDARD|VIP|SUITE",
   "basePrice": number,
-  "status": "LIBRE|OCCUPEE|MAINTENANCE",
-  "description": "string",
+  "extraPersonPrice": number,
   "capacity": number,
-  "amenities": ["string"]
-}
-```
-**Réponse :**
-```json
-{
-  "status": "success",
-  "data": {
-    "id": "uuid",
-    "number": "string",
-    "type": "STANDARD|VIP|SUITE",
-    "basePrice": number,
-    "status": "LIBRE|OCCUPEE|MAINTENANCE",
-    "description": "string",
-    "capacity": number,
-    "amenities": ["string"]
-  }
-}
-```
-
-### Chambres Disponibles
-```http
-GET /api/rooms/available
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Réponse :**
-```json
-{
-  "status": "success",
-  "data": [
-    {
-      "id": "uuid",
-      "number": "string",
-      "type": "STANDARD|VIP|SUITE",
-      "basePrice": number,
-      "status": "LIBRE",
-      "description": "string",
-      "capacity": number,
-      "amenities": ["string"]
-    }
-  ]
-}
-```
-
-### Mise à jour d'une Chambre (Manager uniquement)
-```http
-PUT /api/rooms/:id
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Corps de la requête :**
-```json
-{
-  "basePrice": number,
-  "status": "LIBRE|OCCUPEE|MAINTENANCE",
   "description": "string"
 }
 ```
-**Réponse :**
+
+#### PUT /rooms/:id
+Modifie une chambre existante.
+
 ```json
 {
-  "status": "success",
-  "data": {
-    "id": "uuid",
-    "number": "string",
-    "type": "STANDARD|VIP|SUITE",
-    "basePrice": number,
-    "status": "LIBRE|OCCUPEE|MAINTENANCE",
-    "description": "string",
-    "capacity": number,
-    "amenities": ["string"]
-  }
+  "basePrice": number,
+  "extraPersonPrice": number,
+  "description": "string"
+}
+```
+
+#### PATCH /rooms/:id/status
+Modifie le statut d'une chambre.
+
+```json
+{
+  "isActive": boolean
 }
 ```
 
 ## Gestion des Réservations
 
-### Liste des Réservations
-```http
-GET /api/reservations
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Réponse :**
+### Routes des réservations
+
+#### GET /reservations
+Récupère toutes les réservations.
+
+#### POST /reservations
+Crée une nouvelle réservation.
+
 ```json
 {
-  "status": "success",
-  "data": [
+  "reservationId": "string",
+  "nomClient": "string",
+  "email": "string",
+  "telephone": "string",
+  "adresse": "string",
+  "dateEntree": "YYYY-MM-DD",
+  "dateSortie": "YYYY-MM-DD",
+  "nombrePersonnes": number,
+  "chambreId": "string",
+  "numeroChambre": number,
+  "typeChambre": "string",
+  "montantTotal": number,
+  "paiements": [
     {
-      "id": "uuid",
-      "clientName": "string",
-      "clientType": "PRESENTIEL|ONLINE",
-      "numberOfAdults": number,
-      "checkInDate": "date",
-      "checkOutDate": "date",
-      "totalPrice": number,
-      "paymentMethod": "CASH|CCP",
-      "paymentStatus": "PENDING|COMPLETED",
-      "specialRequests": "string",
-      "contactPhone": "string",
-      "contactEmail": "string",
-      "roomId": "uuid",
-      "createdBy": "uuid"
+      "paiementId": "string",
+      "methodePaiement": "especes|ccp",
+      "montant": number,
+      "datePaiement": "string",
+      "numeroCCP": "string",
+      "numeroTransaction": "string",
+      "preuvePaiement": "string"
     }
-  ]
+  ],
+  "nomGarant": "string",
+  "remarques": "string",
+  "receptionnisteId": "string",
+  "statut": "string"
 }
 ```
 
-### Création d'une Réservation
-```http
-POST /api/reservations
-```
-**Headers :**
-```
-Authorization: Bearer <token>
-```
-**Corps de la requête :**
+#### GET /reservations/:id
+Récupère une réservation spécifique.
+
+#### PATCH /reservations/:id/status
+Modifie le statut d'une réservation.
+
 ```json
 {
-  "clientName": "string",
-  "clientType": "PRESENTIEL|ONLINE",
-  "numberOfAdults": number,
-  "checkInDate": "date",
-  "checkOutDate": "date",
-  "paymentMethod": "CASH|CCP",
-  "paymentStatus": "PENDING|COMPLETED",
-  "specialRequests": "string",
-  "contactPhone": "string",
-  "contactEmail": "string",
-  "roomId": "uuid"
+  "statut": "string"
 }
 ```
-**Réponse :**
+
+#### POST /reservations/:id/payments
+Ajoute un paiement à une réservation.
+
 ```json
 {
-  "status": "success",
-  "data": {
-    "id": "uuid",
-    "clientName": "string",
-    "clientType": "PRESENTIEL|ONLINE",
-    "numberOfAdults": number,
-    "checkInDate": "date",
-    "checkOutDate": "date",
-    "totalPrice": number,
-    "paymentMethod": "CASH|CCP",
-    "paymentStatus": "PENDING|COMPLETED",
-    "specialRequests": "string",
-    "contactPhone": "string",
-    "contactEmail": "string",
-    "roomId": "uuid",
-    "createdBy": "uuid"
-  }
+  "paiementId": "string",
+  "methodePaiement": "especes|ccp",
+  "montant": number,
+  "datePaiement": "string",
+  "numeroCCP": "string",
+  "numeroTransaction": "string",
+  "preuvePaiement": "string"
 }
 ```
 
-## Codes d'Erreur
+## Gestion des Utilisateurs
 
-- `400` : Requête invalide (données manquantes ou invalides)
-- `401` : Non authentifié (token manquant ou invalide)
-- `403` : Non autorisé (rôle insuffisant)
-- `404` : Ressource non trouvée
-- `500` : Erreur serveur
+### Routes des utilisateurs
 
-## Messages d'Erreur Courants
+#### POST /users
+Crée un nouvel utilisateur (nécessite le rôle MANAGER).
 
-- "Données utilisateur incomplètes"
-- "Rôle utilisateur invalide"
-- "Ce nom d'utilisateur existe déjà"
-- "Données de chambre incomplètes"
-- "Type de chambre invalide"
-- "Ce numéro de chambre existe déjà"
-- "Le prix de base doit être positif"
-- "Données de réservation incomplètes"
-- "La date de départ doit être postérieure à la date d'arrivée"
-- "Le nombre d'adultes doit être supérieur à 0"
-- "Accès non autorisé"
-- "Token d'authentification manquant"
-- "Token invalide" 
+```json
+{
+  "username": "string",
+  "password": "string",
+  "role": "RECEPTIONIST|MANAGER",
+  "firstName": "string",
+  "lastName": "string",
+  "email": "string"
+}
+```
+
+#### PUT /users/:id
+Modifie un utilisateur existant.
+
+```json
+{
+  "firstName": "string",
+  "lastName": "string",
+  "email": "string"
+}
+```
+
+#### PATCH /users/:id/status
+Désactive un utilisateur.
+
+```json
+{
+  "isActive": boolean
+}
+```
+
+## Statistiques
+
+### Routes des statistiques
+
+#### GET /statistics/occupation
+Récupère les statistiques d'occupation.
+
+#### GET /statistics/revenue
+Récupère les statistiques de revenus.
+
+```json
+{
+  "period": "YYYY-MM"
+}
+```
+
+#### GET /statistics/popular-rooms
+Récupère les statistiques des chambres populaires.
+
+```json
+{
+  "period": "YYYY-MM"
+}
+```
+
+#### GET /statistics/clients
+Récupère les statistiques des clients.
+
+#### GET /statistics/by-room-type
+Récupère les statistiques par type de chambre.
+
+## Suivi Financier
+
+### Routes financières
+
+#### GET /finance/daily
+Récupère le suivi quotidien des paiements.
+
+```json
+{
+  "date": "YYYY-MM-DD"
+}
+```
+
+#### GET /finance/by-receptionist
+Récupère le suivi financier par réceptionniste.
+
+```json
+{
+  "startDate": "YYYY-MM-DD",
+  "endDate": "YYYY-MM-DD"
+}
+```
+
+#### GET /finance/by-period
+Récupère le suivi financier par période.
+
+```json
+{
+  "startDate": "YYYY-MM-DD",
+  "endDate": "YYYY-MM-DD"
+}
+```
+
+#### GET /finance/employee
+Récupère le suivi financier par employé.
+
+## Maintenance
+
+### Routes de maintenance
+
+#### POST /maintenance
+Active/désactive le mode maintenance.
+
+```json
+{
+  "isActive": boolean
+}
+```
+
+## Codes d'erreur
+
+- 200: Succès
+- 201: Création réussie
+- 400: Données invalides
+- 401: Non authentifié
+- 404: Ressource non trouvée
+- 500: Erreur serveur
+
+## Rôles et Permissions
+
+- MANAGER: Accès complet à toutes les fonctionnalités
+- RECEPTIONIST: Accès limité aux réservations et aux paiements
+
+## Exemples d'utilisation
+
+### Création d'une réservation
+
+```javascript
+const response = await axios.post('/api/reservations', {
+  reservationId: "RES001",
+  nomClient: "Ahmed Benali",
+  email: "ahmed.benali@example.com",
+  telephone: "+213 555 123 456",
+  adresse: "12 Rue de la Liberté, Alger",
+  dateEntree: "2025-06-10",
+  dateSortie: "2025-06-15",
+  nombrePersonnes: 2,
+  chambreId: "room_id",
+  numeroChambre: 101,
+  typeChambre: "STANDARD",
+  montantTotal: 40000,
+  paiements: [
+    {
+      paiementId: "PAY001",
+      methodePaiement: "especes",
+      montant: 40000,
+      datePaiement: "2025-06-09T14:30:00.000Z"
+    }
+  ],
+  statut: "validee"
+});
+```
+
+### Calcul du prix d'une réservation
+
+```javascript
+const response = await axios.post('/api/reservations/calculate-price', {
+  roomId: "room_id",
+  numberOfAdults: 2,
+  numberOfChildren: 0,
+  checkInDate: "2025-07-01",
+  checkOutDate: "2025-07-03"
+});
+```
+
+### Calcul de l'acompte
+
+```javascript
+const response = await axios.post('/api/reservations/calculate-deposit', {
+  roomId: "room_id",
+  totalPrice: 2000,
+  checkInDate: "2025-07-01",
+  checkOutDate: "2025-07-03",
+  numberOfAdults: 2,
+  numberOfChildren: 0
+});
+```

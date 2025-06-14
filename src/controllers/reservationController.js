@@ -7,66 +7,39 @@ const PDFDocument = require('pdfkit');
 // Créer une nouvelle réservation
 exports.createReservation = async (req, res) => {
   try {
-    console.log('Requête complète:', req.body);
-    
     const {
-      clientName,
-      clientType,
-      numberOfAdults,
-      numberOfChildren = 0,
-      checkInDate,
-      checkOutDate,
-      paymentMethod,
-      specialRequests,
-      contactPhone,
-      contactEmail,
-      roomId,
-      depositAmount = 0,
-      totalPrice,
-      guaranteedBy
+      reservationId,
+      nomClient,
+      email,
+      telephone,
+      adresse,
+      dateEntree,
+      dateSortie,
+      nombrePersonnes,
+      chambreId,
+      numeroChambre,
+      typeChambre,
+      montantTotal,
+      paiements,
+      nomGarant,
+      remarques,
+      receptionnisteId,
+      statut,
+      receptionniste
     } = req.body;
 
     // Vérifier les données requises
-    if (!clientName || !clientType || !numberOfAdults || !checkInDate || !checkOutDate || !paymentMethod || !contactPhone || !contactEmail || !roomId) {
-      console.log('Données manquantes:', {
-        clientName,
-        clientType,
-        numberOfAdults,
-        checkInDate,
-        checkOutDate,
-        paymentMethod,
-        contactPhone,
-        contactEmail,
-        roomId
-      });
+    if (!reservationId || !nomClient || !email || !telephone || !adresse || !dateEntree || !dateSortie || 
+        !nombrePersonnes || !chambreId || !numeroChambre || !typeChambre || !montantTotal || !receptionnisteId || !receptionniste) {
       return res.status(400).json({
         success: false,
-        message: 'Données de réservation incomplètes',
-        missingFields: {
-          clientName: !clientName,
-          clientType: !clientType,
-          numberOfAdults: !numberOfAdults,
-          checkInDate: !checkInDate,
-          checkOutDate: !checkOutDate,
-          paymentMethod: !paymentMethod,
-          contactPhone: !contactPhone,
-          contactEmail: !contactEmail,
-          roomId: !roomId
-        }
-      });
-    }
-
-    // Vérifier le nombre d'adultes
-    if (numberOfAdults < 1) {
-      return res.status(400).json({
-        success: false,
-        message: 'Le nombre d\'adultes doit être supérieur à 0'
+        message: 'Données de réservation incomplètes'
       });
     }
 
     // Vérifier les dates
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
+    const checkIn = new Date(dateEntree);
+    const checkOut = new Date(dateSortie);
     if (checkIn >= checkOut) {
       return res.status(400).json({
         success: false,
@@ -74,43 +47,34 @@ exports.createReservation = async (req, res) => {
       });
     }
 
-    // Vérifier la méthode de paiement
-    const validPaymentMethods = ['CASH', 'CREDIT_CARD', 'BANK_TRANSFER'];
-    if (!validPaymentMethods.includes(paymentMethod)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Méthode de paiement invalide'
-      });
-    }
-
     // Vérifier la chambre
-    console.log('Recherche de la chambre avec ID:', roomId);
-    const room = await Room.findByPk(roomId);
+    const room = await Room.findByPk(chambreId);
     if (!room) {
-      console.log('Chambre non trouvée pour ID:', roomId);
       return res.status(404).json({
         success: false,
         message: 'Chambre non trouvée'
       });
     }
-    console.log('Chambre trouvée:', room.toJSON());
 
     // Vérifier la disponibilité de la chambre
     const existingReservation = await Reservation.findOne({
       where: {
-        roomId,
+        chambreId,
         [Op.or]: [
           {
-            checkInDate: {
+            dateEntree: {
               [Op.between]: [checkIn, checkOut]
             }
           },
           {
-            checkOutDate: {
+            dateSortie: {
               [Op.between]: [checkIn, checkOut]
             }
           }
-        ]
+        ],
+        statut: {
+          [Op.notIn]: ['annulee']
+        }
       }
     });
 
@@ -121,81 +85,35 @@ exports.createReservation = async (req, res) => {
       });
     }
 
-    // Vérifier le garant si spécifié
-    if (guaranteedBy) {
-      const guarantor = await User.findByPk(guaranteedBy);
-      if (!guarantor || guarantor.role !== 'MANAGER') {
-        return res.status(400).json({
-          success: false,
-          message: 'Garant invalide'
-        });
-      }
-    }
-
-    // Calculer le prix total
-    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-    const basePrice = room.basePrice * nights;
-    const extraAdults = Math.max(0, numberOfAdults - room.capacity);
-    const extraPrice = extraAdults * room.extraPersonPrice * nights;
-    const calculatedTotalPrice = totalPrice || basePrice + extraPrice;
-
-    console.log('Calcul du prix:', {
-      nights,
-      basePrice,
-      extraAdults,
-      extraPrice,
-      calculatedTotalPrice,
-      providedTotalPrice: totalPrice
-    });
-
-    // Déterminer le statut de paiement
-    let paymentStatus = 'PENDING';
-    if (depositAmount >= calculatedTotalPrice) {
-      paymentStatus = 'PAID';
-    } else if (depositAmount > 0) {
-      paymentStatus = 'DEPOSIT_PAID';
-    }
-
-    console.log('Statut de paiement:', {
-      depositAmount,
-      calculatedTotalPrice,
-      paymentStatus
-    });
-
     // Créer la réservation
     const reservation = await Reservation.create({
-      clientName,
-      clientType,
-      numberOfAdults,
-      numberOfChildren,
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      paymentMethod,
-      paymentStatus,
-      specialRequests,
-      contactPhone,
-      contactEmail,
-      roomId,
-      depositAmount,
-      totalPrice: calculatedTotalPrice,
-      guaranteedBy,
-      createdBy: req.user.id
+      reservationId,
+      nomClient,
+      email,
+      telephone,
+      adresse,
+      dateEntree: checkIn,
+      dateSortie: checkOut,
+      nombrePersonnes,
+      chambreId,
+      numeroChambre,
+      typeChambre,
+      montantTotal,
+      paiements: paiements || [],
+      nomGarant: nomGarant || '',
+      remarques: remarques || '',
+      receptionnisteId,
+      statut: statut || 'validee',
+      dateCreation: new Date(),
+      receptionniste
     });
 
     // Mettre à jour le statut de la chambre
     await room.update({ status: 'RÉSERVÉE' });
 
-    // Récupérer le créateur pour inclure son nom d'utilisateur
-    const creator = await User.findByPk(req.user.id);
-
     res.status(201).json({
       success: true,
-      data: {
-        reservation: {
-          ...reservation.toJSON(),
-          createdByUsername: creator ? creator.username : null
-        }
-      }
+      data: reservation
     });
   } catch (error) {
     console.error('Erreur lors de la création de la réservation:', error);
@@ -301,28 +219,12 @@ exports.calculatePrice = async (req, res) => {
 exports.getAllReservations = async (req, res) => {
   try {
     const reservations = await Reservation.findAll({
-      include: [
-        {
-          model: Room,
-          attributes: ['number', 'type', 'status']
-        },
-        {
-          model: User,
-          as: 'creator',
-          attributes: ['username', 'role']
-        }
-      ]
+      order: [['dateCreation', 'DESC']]
     });
-
-    // Ajouter createdByUsername à chaque réservation
-    const reservationsWithCreator = reservations.map(reservation => ({
-      ...reservation.toJSON(),
-      createdByUsername: reservation.creator ? reservation.creator.username : null
-    }));
 
     res.status(200).json({
       success: true,
-      data: reservationsWithCreator
+      data: reservations
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des réservations:', error);
@@ -336,19 +238,7 @@ exports.getAllReservations = async (req, res) => {
 // Récupérer une réservation par son ID
 exports.getReservationById = async (req, res) => {
   try {
-    const reservation = await Reservation.findByPk(req.params.id, {
-      include: [
-        {
-          model: Room,
-          attributes: ['number', 'type', 'status']
-        },
-        {
-          model: User,
-          as: 'creator',
-          attributes: ['username', 'role']
-        }
-      ]
-    });
+    const reservation = await Reservation.findByPk(req.params.id);
 
     if (!reservation) {
       return res.status(404).json({
@@ -357,15 +247,9 @@ exports.getReservationById = async (req, res) => {
       });
     }
 
-    // Ajouter createdByUsername à la réponse
-    const reservationWithCreator = {
-      ...reservation.toJSON(),
-      createdByUsername: reservation.creator ? reservation.creator.username : null
-    };
-
     res.status(200).json({
       success: true,
-      data: reservationWithCreator
+      data: reservation
     });
   } catch (error) {
     console.error('Erreur lors de la récupération de la réservation:', error);
@@ -376,10 +260,10 @@ exports.getReservationById = async (req, res) => {
   }
 };
 
-// Mettre à jour le statut de paiement
-exports.updatePaymentStatus = async (req, res) => {
+// Mettre à jour le statut d'une réservation
+exports.updateStatus = async (req, res) => {
   try {
-    const { paymentStatus, paymentMethod, amount } = req.body;
+    const { statut } = req.body;
     const reservation = await Reservation.findByPk(req.params.id);
 
     if (!reservation) {
@@ -389,151 +273,65 @@ exports.updatePaymentStatus = async (req, res) => {
       });
     }
 
-    // Mettre à jour le statut et le montant payé
-    await reservation.update({
-      paymentStatus,
-      paymentMethod,
-      depositAmount: amount
-    });
+    await reservation.update({ statut });
 
     res.status(200).json({
       success: true,
-      data: {
-        paymentStatus,
-        paymentMethod,
-        totalPaid: amount
-      }
+      data: reservation
     });
   } catch (error) {
-    console.error('Erreur lors de la mise à jour du paiement:', error);
+    console.error('Erreur lors de la mise à jour du statut:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la mise à jour du paiement'
+      message: 'Erreur lors de la mise à jour du statut'
     });
   }
 };
 
-// Gérer le paiement d'un acompte
-exports.handleDeposit = async (req, res) => {
+// Ajouter un paiement à une réservation
+exports.addPayment = async (req, res) => {
   try {
     const {
-      clientName,
-      clientType,
-      numberOfAdults,
-      checkInDate,
-      checkOutDate,
-      paymentMethod,
-      depositAmount,
-      roomId,
-      contactPhone,
-      contactEmail
+      paiementId,
+      methodePaiement,
+      montant,
+      datePaiement,
+      numeroCCP,
+      numeroTransaction,
+      preuvePaiement
     } = req.body;
 
-    // Validation des données requises
-    if (!clientName || !clientType || !numberOfAdults || !checkInDate || !checkOutDate || !paymentMethod || !depositAmount || !roomId || !contactPhone || !contactEmail) {
-      return res.status(400).json({
-        success: false,
-        message: 'Données incomplètes pour le paiement de l\'acompte'
-      });
-    }
+    const reservation = await Reservation.findByPk(req.params.id);
 
-    // Validation du montant de l'acompte
-    if (depositAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Le montant de l\'acompte doit être positif'
-      });
-    }
-
-    // Vérifier les dates
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
-
-    if (checkIn >= checkOut) {
-      return res.status(400).json({
-        success: false,
-        message: 'La date de départ doit être postérieure à la date d\'arrivée'
-      });
-    }
-
-    // Trouver la chambre
-    const room = await Room.findByPk(roomId);
-    if (!room) {
+    if (!reservation) {
       return res.status(404).json({
         success: false,
-        message: 'Chambre non trouvée'
+        message: 'Réservation non trouvée'
       });
     }
 
-    // Vérifier si la chambre est active
-    if (!room.isActive) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cette chambre n\'est plus disponible'
-      });
-    }
+    const newPayment = {
+      paiementId,
+      methodePaiement,
+      montant,
+      datePaiement,
+      numeroCCP,
+      numeroTransaction,
+      preuvePaiement
+    };
 
-    // Calculer le prix total
-    const numberOfNights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-    const basePricePerNight = Number(room.basePrice) || 0;
-    const extraPersonPricePerNight = Number(room.extraPersonPrice) || 0;
-    
-    // Calcul du prix de base
-    const basePrice = basePricePerNight * numberOfNights;
-    
-    // Calcul du prix supplémentaire si nécessaire
-    let extraPrice = 0;
-    if (numberOfAdults > room.capacity) {
-      const extraAdults = numberOfAdults - room.capacity;
-      extraPrice = extraPersonPricePerNight * extraAdults * numberOfNights;
-    }
-    
-    // Calcul du prix total
-    const totalPrice = basePrice + extraPrice;
+    const paiements = [...reservation.paiements, newPayment];
+    await reservation.update({ paiements });
 
-    // Vérifier que l'acompte est suffisant (au moins 30% du prix total)
-    const minimumDeposit = totalPrice * 0.3;
-    if (depositAmount < minimumDeposit) {
-      return res.status(400).json({
-        success: false,
-        message: `L'acompte minimum doit être de ${minimumDeposit} (30% du prix total)`
-      });
-    }
-
-    // Créer la réservation avec l'acompte
-    const reservation = await Reservation.create({
-      clientName,
-      clientType,
-      numberOfAdults,
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      totalPrice,
-      paymentMethod,
-      paymentStatus: 'DEPOSIT_PAID',
-      depositAmount,
-      roomId,
-      contactPhone,
-      contactEmail,
-      createdBy: req.user.id
-    });
-
-    // Mettre à jour le statut de la chambre
-    await room.update({ status: 'RÉSERVÉE' });
-
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      data: {
-        reservation,
-        totalPrice,
-        depositAmount,
-        remainingAmount: totalPrice - depositAmount
-      }
+      data: reservation
     });
   } catch (error) {
-    console.error('Erreur lors du paiement de l\'acompte:', error);
+    console.error('Erreur lors de l\'ajout du paiement:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors du paiement de l\'acompte'
+      message: 'Erreur lors de l\'ajout du paiement'
     });
   }
 };
@@ -788,26 +586,26 @@ exports.getAvailableRooms = async (req, res) => {
       where: {
         [Op.or]: [
           {
-            checkInDate: { [Op.between]: [startDate, endDate] }
+            dateEntree: { [Op.between]: [startDate, endDate] }
           },
           {
-            checkOutDate: { [Op.between]: [startDate, endDate] }
+            dateSortie: { [Op.between]: [startDate, endDate] }
           },
           {
             [Op.and]: [
-              { checkInDate: { [Op.lte]: startDate } },
-              { checkOutDate: { [Op.gte]: endDate } }
+              { dateEntree: { [Op.lte]: startDate } },
+              { dateSortie: { [Op.gte]: endDate } }
             ]
           }
         ],
-        paymentStatus: {
-          [Op.notIn]: ['CANCELLED']
+        statut: {
+          [Op.notIn]: ['annulee']
         }
       },
-      attributes: ['roomId']
+      attributes: ['chambreId']
     });
 
-    const reservedRoomIds = reservedRooms.map(r => r.roomId);
+    const reservedRoomIds = reservedRooms.map(r => r.chambreId);
 
     // Trouver toutes les chambres disponibles
     const availableRooms = await Room.findAll({
@@ -871,23 +669,23 @@ exports.generateInvoice = async (req, res) => {
     // Informations de la réservation
     doc.fontSize(12);
     doc.text(`Numéro de réservation: ${reservation.id}`);
-    doc.text(`Client: ${reservation.clientName}`);
+    doc.text(`Client: ${reservation.nomClient}`);
     doc.text(`Type de client: ${reservation.clientType}`);
     doc.text(`Chambre: ${reservation.Room.number} (${reservation.Room.type})`);
-    doc.text(`Arrivée: ${reservation.checkInDate.toLocaleDateString()}`);
-    doc.text(`Départ: ${reservation.checkOutDate.toLocaleDateString()}`);
-    doc.text(`Nombre d'adultes: ${reservation.numberOfAdults}`);
+    doc.text(`Arrivée: ${reservation.dateEntree.toLocaleDateString()}`);
+    doc.text(`Départ: ${reservation.dateSortie.toLocaleDateString()}`);
+    doc.text(`Nombre d'adultes: ${reservation.nombrePersonnes}`);
     doc.moveDown();
 
     // Détails du prix
     doc.text('Détails du prix:');
-    doc.text(`Prix total: ${reservation.totalPrice} DA`);
+    doc.text(`Prix total: ${reservation.montantTotal} DA`);
     doc.text(`Acompte payé: ${reservation.depositAmount} DA`);
-    doc.text(`Reste à payer: ${reservation.totalPrice - reservation.depositAmount} DA`);
+    doc.text(`Reste à payer: ${reservation.montantTotal - reservation.depositAmount} DA`);
     doc.moveDown();
 
     // Statut du paiement
-    doc.text(`Statut du paiement: ${reservation.paymentStatus}`);
+    doc.text(`Statut du paiement: ${reservation.statut}`);
     doc.text(`Méthode de paiement: ${reservation.paymentMethod}`);
 
     // Finaliser le PDF
@@ -909,10 +707,10 @@ exports.generateInvoice = async (req, res) => {
         invoiceUrl,
         reservation: {
           id: reservation.id,
-          clientName: reservation.clientName,
-          totalPrice: reservation.totalPrice,
+          clientName: reservation.nomClient,
+          totalPrice: reservation.montantTotal,
           depositAmount: reservation.depositAmount,
-          paymentStatus: reservation.paymentStatus
+          paymentStatus: reservation.statut
         }
       }
     });
@@ -959,10 +757,10 @@ exports.getPaymentHistory = async (req, res) => {
     }
 
     // Ajouter le paiement final s'il a été effectué
-    if (reservation.paymentStatus === 'PAID') {
+    if (reservation.statut === 'PAID') {
       paymentHistory.push({
         type: 'FINAL_PAYMENT',
-        amount: reservation.totalPrice - reservation.depositAmount,
+        amount: reservation.montantTotal - reservation.depositAmount,
         date: reservation.updatedAt,
         status: 'COMPLETED',
         method: reservation.paymentMethod
@@ -971,18 +769,18 @@ exports.getPaymentHistory = async (req, res) => {
 
     // Calculer les totaux
     const totalPaid = paymentHistory.reduce((sum, payment) => sum + payment.amount, 0);
-    const remainingAmount = reservation.totalPrice - totalPaid;
+    const remainingAmount = reservation.montantTotal - totalPaid;
 
     res.json({
       success: true,
       data: {
         reservationId: reservation.id,
-        clientName: reservation.clientName,
+        clientName: reservation.nomClient,
         roomNumber: reservation.Room?.number,
-        totalAmount: reservation.totalPrice,
+        totalAmount: reservation.montantTotal,
         totalPaid,
         remainingAmount,
-        paymentStatus: reservation.paymentStatus,
+        paymentStatus: reservation.statut,
         payments: paymentHistory
       }
     });
@@ -1066,8 +864,8 @@ exports.addPartialPayment = async (req, res) => {
     const currentDate = paymentDate || new Date().toISOString().split('T')[0];
 
     // Mettre à jour le statut de paiement si nécessaire
-    let paymentStatus = reservation.paymentStatus;
-    if (newDepositAmount >= reservation.totalPrice) {
+    let paymentStatus = reservation.statut;
+    if (newDepositAmount >= reservation.montantTotal) {
       paymentStatus = 'PAID';
     } else if (newDepositAmount > 0) {
       paymentStatus = 'DEPOSIT_PAID';
@@ -1077,7 +875,7 @@ exports.addPartialPayment = async (req, res) => {
       depositAmount: newDepositAmount,
       paymentMethod,
       paymentDate: currentDate,
-      paymentStatus
+      statut: paymentStatus
     });
 
     res.status(200).json({

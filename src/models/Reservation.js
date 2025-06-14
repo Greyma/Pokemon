@@ -2,107 +2,97 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Reservation = sequelize.define('Reservation', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
+  reservationId: {
+    type: DataTypes.STRING,
+    primaryKey: true,
+    allowNull: false
   },
-  clientName: {
+  nomClient: {
     type: DataTypes.STRING,
     allowNull: false
   },
-  clientType: {
-    type: DataTypes.ENUM('PRESENTIEL', 'ONLINE'),
-    allowNull: false
-  },
-  numberOfAdults: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    validate: {
-      min: 1
-    }
-  },
-  numberOfChildren: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-    validate: {
-      min: 0
-    }
-  },
-  checkInDate: {
-    type: DataTypes.DATE,
-    allowNull: false
-  },
-  checkOutDate: {
-    type: DataTypes.DATE,
-    allowNull: false
-  },
-  totalPrice: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: false
-  },
-  paymentMethod: {
-    type: DataTypes.ENUM('CASH', 'CREDIT_CARD', 'BANK_TRANSFER'),
-    allowNull: false
-  },
-  paymentStatus: {
-    type: DataTypes.ENUM('PENDING', 'DEPOSIT_PAID', 'PAID', 'CANCELLED'),
-    allowNull: false,
-    defaultValue: 'PENDING'
-  },
-  specialRequests: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  contactPhone: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  contactEmail: {
+  email: {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {
       isEmail: true
     }
   },
-  guaranteedBy: {
+  telephone: {
     type: DataTypes.STRING,
-    allowNull: true,
-    references: {
-      model: 'Users',
-      key: 'username'
+    allowNull: false
+  },
+  adresse: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  dateEntree: {
+    type: DataTypes.DATE,
+    allowNull: false
+  },
+  dateSortie: {
+    type: DataTypes.DATE,
+    allowNull: false
+  },
+  nombrePersonnes: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: {
+      min: 1
     }
   },
-  depositAmount: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: true,
-    defaultValue: 0
+  chambreId: {
+    type: DataTypes.STRING,
+    allowNull: false
   },
-  ccpProofPath: {
+  numeroChambre: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  typeChambre: {
+    type: DataTypes.ENUM('STANDARD', 'VIP', 'SUITE'),
+    allowNull: false
+  },
+  montantTotal: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  paiements: {
+    type: DataTypes.JSON,
+    allowNull: false,
+    defaultValue: []
+  },
+  nomGarant: {
     type: DataTypes.STRING,
     allowNull: true
   },
-  roomId: {
-    type: DataTypes.UUID,
+  remarques: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  receptionnisteId: {
+    type: DataTypes.STRING,
     allowNull: false
   },
-  createdBy: {
-    type: DataTypes.UUID,
+  statut: {
+    type: DataTypes.ENUM('validee', 'en_cours', 'terminee', 'annulee'),
     allowNull: false,
-    references: {
-      model: 'Users',
-      key: 'id'
-    }
+    defaultValue: 'validee'
   },
-  invoiceUrl: {
-    type: DataTypes.STRING
+  dateCreation: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
+  },
+  receptionniste: {
+    type: DataTypes.STRING,
+    allowNull: false
   }
 }, {
   timestamps: true,
   validate: {
     checkDates() {
-      if (this.checkInDate >= this.checkOutDate) {
+      if (this.dateEntree >= this.dateSortie) {
         throw new Error('La date de départ doit être postérieure à la date d\'arrivée');
       }
     }
