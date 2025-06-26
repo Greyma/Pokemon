@@ -1115,5 +1115,5 @@ describe('Tests de facturation et historique des paiements', () => {
     }
   });
 
-  
+
 }); 

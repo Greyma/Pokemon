@@ -67,3 +67,4 @@ config.dev.js
 .cache/
 .npm/
 .eslintcache
+/tests
