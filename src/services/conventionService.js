@@ -14,9 +14,9 @@ class ConventionService {
     
     if (search) {
       whereClause[sequelize.Op.or] = [
-        { numeroConvention: { [sequelize.Op.iLike]: `%${search}%` } },
-        { nomSociete: { [sequelize.Op.iLike]: `%${search}%` } },
-        { contactPrincipal: { [sequelize.Op.iLike]: `%${search}%` } }
+        { numeroConvention: { [sequelize.Op.like]: `%${search}%` } },
+        { nomSociete: { [sequelize.Op.like]: `%${search}%` } },
+        { contactPrincipal: { [sequelize.Op.like]: `%${search}%` } }
       ];
     }
 
@@ -236,7 +236,9 @@ class ConventionService {
   static async searchConventionsBySociete(nomSociete) {
     return await Convention.findAll({
       where: {
-        nomSociete: { [sequelize.Op.iLike]: `%${nomSociete}%` }
+        nomSociete: { 
+          [sequelize.Op.like]: `%${nomSociete}%` 
+        }
       },
       include: [
         {

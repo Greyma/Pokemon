@@ -18,9 +18,6 @@ const {
 const requireManagerOrReceptionist = hasRole(['MANAGER', 'RECEPTIONIST']);
 const requireManager = hasRole(['MANAGER']);
 
-// Configuration de express-file-upload pour les justificatifs
-router.use('/:id/upload-justificatif', conventionFileUpload);
-
 // Routes principales
 // GET /api/conventions - Récupérer toutes les conventions (Manager et Réceptionniste)
 router.get('/', 
@@ -52,20 +49,48 @@ router.get('/active',
   ConventionController.getActiveConventions
 );
 
-// GET /api/conventions/:id - Récupérer une convention spécifique
-router.get('/:id', 
-  authenticateToken, 
-  requireManagerOrReceptionist, 
-  validateId,
-  ConventionController.getConventionById
-);
-
 // POST /api/conventions - Créer une nouvelle convention (Manager uniquement)
 router.post('/', 
   authenticateToken, 
   requireManager, 
   validateCreateConvention,
   ConventionController.createConvention
+);
+
+// POST /api/conventions/verifier-disponibilite - Vérifier la disponibilité des chambres (Manager uniquement)
+router.post('/verifier-disponibilite', 
+  authenticateToken, 
+  requireManager, 
+  validateVerificationDisponibilite,
+  ConventionController.verifierDisponibiliteChambres
+);
+
+// POST /api/conventions/rechercher-dates-disponibles - Rechercher toutes les dates disponibles (Manager uniquement)
+router.post('/rechercher-dates-disponibles', 
+  authenticateToken, 
+  requireManager, 
+  validateRechercheDatesDisponibles,
+  ConventionController.rechercherDatesDisponibles
+);
+
+// POST /api/conventions/rechercher-dates-disponibles-par-nombre-total - Rechercher par nombre total de chambres (Manager uniquement)
+router.post('/rechercher-dates-disponibles-par-nombre-total', 
+  authenticateToken, 
+  requireManager, 
+  validateRechercheDatesDisponiblesParNombreTotal,
+  ConventionController.rechercherDatesDisponiblesParNombreTotal
+);
+
+// Configuration de express-file-upload pour les justificatifs
+router.use('/:id/upload-justificatif', conventionFileUpload);
+
+// Routes avec paramètres ID (doivent être après les routes spécifiques)
+// GET /api/conventions/:id - Récupérer une convention spécifique
+router.get('/:id', 
+  authenticateToken, 
+  requireManagerOrReceptionist, 
+  validateId,
+  ConventionController.getConventionById
 );
 
 // PUT /api/conventions/:id - Modifier une convention (Manager uniquement)
@@ -107,30 +132,6 @@ router.get('/:id/statut-reservations',
   requireManagerOrReceptionist, 
   validateId,
   ConventionController.getStatutReservations
-);
-
-// POST /api/conventions/verifier-disponibilite - Vérifier la disponibilité des chambres (Manager uniquement)
-router.post('/verifier-disponibilite', 
-  authenticateToken, 
-  requireManager, 
-  validateVerificationDisponibilite,
-  ConventionController.verifierDisponibiliteChambres
-);
-
-// POST /api/conventions/rechercher-dates-disponibles - Rechercher toutes les dates disponibles (Manager uniquement)
-router.post('/rechercher-dates-disponibles', 
-  authenticateToken, 
-  requireManager, 
-  validateRechercheDatesDisponibles,
-  ConventionController.rechercherDatesDisponibles
-);
-
-// POST /api/conventions/rechercher-dates-disponibles-par-nombre-total - Rechercher par nombre total de chambres (Manager uniquement)
-router.post('/rechercher-dates-disponibles-par-nombre-total', 
-  authenticateToken, 
-  requireManager, 
-  validateRechercheDatesDisponiblesParNombreTotal,
-  ConventionController.rechercherDatesDisponiblesParNombreTotal
 );
 
 // Routes pour les fichiers

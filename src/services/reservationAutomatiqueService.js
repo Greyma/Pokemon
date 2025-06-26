@@ -229,7 +229,11 @@ class ReservationAutomatiqueService {
         };
       }
 
-      // Récupérer toutes les réservations existantes dans la période
+      // Récupérer toutes les réservations existantes dans la période étendue
+      // Étendre la période pour inclure les réservations qui se terminent juste avant notre période de recherche
+      const dateDebutEtendue = new Date(dateDebut);
+      dateDebutEtendue.setDate(dateDebutEtendue.getDate() - nombreJours); // Remonter de nombreJours jours
+      
       const reservationsExistant = await Reservation.findAll({
         where: {
           [Op.and]: [
@@ -238,17 +242,17 @@ class ReservationAutomatiqueService {
                 {
                   dateEntree: {
                     [Op.lt]: dateFinMax,
-                    [Op.gte]: dateDebut
+                    [Op.gte]: dateDebutEtendue.toISOString().split('T')[0]
                   }
                 },
                 {
                   dateSortie: {
-                    [Op.gt]: dateDebut,
+                    [Op.gt]: dateDebutEtendue.toISOString().split('T')[0],
                     [Op.lte]: dateFinMax
                   }
                 },
                 {
-                  dateEntree: { [Op.lte]: dateDebut },
+                  dateEntree: { [Op.lte]: dateDebutEtendue.toISOString().split('T')[0] },
                   dateSortie: { [Op.gte]: dateFinMax }
                 }
               ]
@@ -274,8 +278,8 @@ class ReservationAutomatiqueService {
       reservationsExistant.forEach(reservation => {
         const occupations = calendrierOccupations.get(reservation.chambreId) || [];
         occupations.push({
-          dateEntree: reservation.dateEntree,
-          dateSortie: reservation.dateSortie
+          dateEntree: new Date(reservation.dateEntree),
+          dateSortie: new Date(reservation.dateSortie)
         });
         calendrierOccupations.set(reservation.chambreId, occupations);
       });
@@ -286,9 +290,11 @@ class ReservationAutomatiqueService {
         
         for (const occupation of occupations) {
           // Vérifier s'il y a un chevauchement
+          // Une chambre est disponible si :
+          // 1. La période demandée commence après la fin de l'occupation existante
+          // 2. La période demandée se termine avant le début de l'occupation existante
           if (
-            (dateDebutPeriode < occupation.dateSortie && dateFinPeriode > occupation.dateEntree) ||
-            (occupation.dateEntree < dateFinPeriode && occupation.dateSortie > dateDebutPeriode)
+            (dateDebutPeriode < occupation.dateSortie && dateFinPeriode > occupation.dateEntree)
           ) {
             return false;
           }
@@ -347,16 +353,19 @@ class ReservationAutomatiqueService {
         const dateFinPeriode = new Date(dateCourante);
         dateFinPeriode.setDate(dateFinPeriode.getDate() + nombreJours - 1);
 
-        // Vérifier si la période est disponible
-        const disponibilite = verifierDisponibilitePeriode(dateDebutPeriode, dateFinPeriode);
+        // Vérifier si la période se termine dans la période de recherche
+        if (dateFinPeriode <= dateFinMaxObj) {
+          // Vérifier si la période est disponible
+          const disponibilite = verifierDisponibilitePeriode(dateDebutPeriode, dateFinPeriode);
 
-        if (disponibilite.disponible) {
-          datesDisponibles.push({
-            dateDebut: dateDebutPeriode.toISOString().split('T')[0],
-            dateFin: dateFinPeriode.toISOString().split('T')[0],
-            nombreJours: nombreJours,
-            disponibilite: disponibilite.details
-          });
+          if (disponibilite.disponible) {
+            datesDisponibles.push({
+              dateDebut: dateDebutPeriode.toISOString().split('T')[0],
+              dateFin: dateFinPeriode.toISOString().split('T')[0],
+              nombreJours: nombreJours,
+              disponibilite: disponibilite.details
+            });
+          }
         }
 
         // Passer à la date suivante
@@ -408,7 +417,11 @@ class ReservationAutomatiqueService {
         };
       }
 
-      // Récupérer toutes les réservations existantes dans la période
+      // Récupérer toutes les réservations existantes dans la période étendue
+      // Étendre la période pour inclure les réservations qui se terminent juste avant notre période de recherche
+      const dateDebutEtendue = new Date(dateDebut);
+      dateDebutEtendue.setDate(dateDebutEtendue.getDate() - nombreJours); // Remonter de nombreJours jours
+      
       const reservationsExistant = await Reservation.findAll({
         where: {
           [Op.and]: [
@@ -417,17 +430,17 @@ class ReservationAutomatiqueService {
                 {
                   dateEntree: {
                     [Op.lt]: dateFin,
-                    [Op.gte]: dateDebut
+                    [Op.gte]: dateDebutEtendue.toISOString().split('T')[0]
                   }
                 },
                 {
                   dateSortie: {
-                    [Op.gt]: dateDebut,
+                    [Op.gt]: dateDebutEtendue.toISOString().split('T')[0],
                     [Op.lte]: dateFin
                   }
                 },
                 {
-                  dateEntree: { [Op.lte]: dateDebut },
+                  dateEntree: { [Op.lte]: dateDebutEtendue.toISOString().split('T')[0] },
                   dateSortie: { [Op.gte]: dateFin }
                 }
               ]
@@ -453,8 +466,8 @@ class ReservationAutomatiqueService {
       reservationsExistant.forEach(reservation => {
         const occupations = calendrierOccupations.get(reservation.chambreId) || [];
         occupations.push({
-          dateEntree: reservation.dateEntree,
-          dateSortie: reservation.dateSortie
+          dateEntree: new Date(reservation.dateEntree),
+          dateSortie: new Date(reservation.dateSortie)
         });
         calendrierOccupations.set(reservation.chambreId, occupations);
       });
@@ -465,9 +478,11 @@ class ReservationAutomatiqueService {
         
         for (const occupation of occupations) {
           // Vérifier s'il y a un chevauchement
+          // Une chambre est disponible si :
+          // 1. La période demandée commence après la fin de l'occupation existante
+          // 2. La période demandée se termine avant le début de l'occupation existante
           if (
-            (dateDebutPeriode < occupation.dateSortie && dateFinPeriode > occupation.dateEntree) ||
-            (occupation.dateEntree < dateFinPeriode && occupation.dateSortie > dateDebutPeriode)
+            (dateDebutPeriode < occupation.dateSortie && dateFinPeriode > occupation.dateEntree)
           ) {
             return false;
           }
@@ -528,17 +543,20 @@ class ReservationAutomatiqueService {
         const dateFinPeriode = new Date(dateCourante);
         dateFinPeriode.setDate(dateFinPeriode.getDate() + nombreJours - 1);
 
-        // Vérifier si la période est disponible
-        const disponibilite = verifierDisponibilitePeriode(dateDebutPeriode, dateFinPeriode);
+        // Vérifier si la période se termine dans la période de recherche
+        if (dateFinPeriode <= dateFinObj) {
+          // Vérifier si la période est disponible
+          const disponibilite = verifierDisponibilitePeriode(dateDebutPeriode, dateFinPeriode);
 
-        if (disponibilite.disponible) {
-          datesDisponibles.push({
-            dateDebut: dateDebutPeriode.toISOString().split('T')[0],
-            dateFin: dateFinPeriode.toISOString().split('T')[0],
-            nombreJours: nombreJours,
-            nombreChambresDisponibles: disponibilite.nombreChambresDisponibles,
-            disponibilite: disponibilite.details
-          });
+          if (disponibilite.disponible) {
+            datesDisponibles.push({
+              dateDebut: dateDebutPeriode.toISOString().split('T')[0],
+              dateFin: dateFinPeriode.toISOString().split('T')[0],
+              nombreJours: nombreJours,
+              nombreChambresDisponibles: disponibilite.nombreChambresDisponibles,
+              disponibilite: disponibilite.details
+            });
+          }
         }
 
         // Passer à la date suivante
