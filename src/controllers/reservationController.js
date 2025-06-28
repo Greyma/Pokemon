@@ -1259,7 +1259,7 @@ exports.getRoomReservations = async (req, res) => {
         {
           model: User,
           as: 'creator',
-          attributes: ['id', 'nom', 'prenom']
+          attributes: ['id', 'username', 'role']
         },
         {
           model: Convention,

@@ -63,10 +63,36 @@ class ConventionController {
     }
   }
 
+  // Récupérer les détails complets d'une convention
+  static async getConventionDetails(req, res) {
+    try {
+      const convention = await ConventionService.getConventionDetails(req.params.id);
+
+      res.json({
+        success: true,
+        data: convention
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération des détails de la convention:', error);
+      
+      if (error.message.includes('Convention non trouvée')) {
+        return res.status(404).json({
+          success: false,
+          message: error.message
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la récupération des détails de la convention'
+      });
+    }
+  }
+
   // Créer une nouvelle convention
   static async createConvention(req, res) {
     try {
-      const convention = await ConventionService.createConvention(req.body, req.user.id);
+      const convention = await ConventionService.createConvention(req.body, req.user);
 
       res.status(201).json({
         success: true,

@@ -37,6 +37,12 @@ class ConventionService {
           model: User,
           as: 'creator',
           attributes: ['id', 'username', 'role']
+        },
+        {
+          model: Room,
+          as: 'rooms',
+          through: { attributes: [] },
+          attributes: ['id', 'number', 'type', 'basePrice', 'extraPersonPrice', 'capacity', 'isActive', 'status']
         }
       ],
       order: [['createdAt', 'DESC']],
@@ -57,7 +63,8 @@ class ConventionService {
         {
           model: Room,
           as: 'rooms',
-          through: { attributes: [] }
+          through: { attributes: [] },
+          attributes: ['id', 'number', 'type', 'basePrice', 'extraPersonPrice', 'capacity', 'isActive', 'status']
         }
       ]
     });
@@ -82,7 +89,17 @@ class ConventionService {
   }
 
   // Créer une nouvelle convention
-  static async createConvention(conventionData, createdBy) {
+  static async createConvention(conventionData, createdBy) {    
+    // Vérifier que l'utilisateur existe dans la base de données
+    const user = await User.findByPk(createdBy.id);
+    if (!user) {
+      throw new Error(`Utilisateur avec l'ID ${createdBy.id} non trouvé dans la base de données`);
+    }
+    
+    if (!user.isActive) {
+      throw new Error('L\'utilisateur n\'est pas actif');
+    }
+
     // Vérifier si le numéro de convention existe déjà
     const existingConvention = await this.checkConventionNumberExists(conventionData.numeroConvention);
     if (existingConvention) {
@@ -137,12 +154,12 @@ class ConventionService {
     const dateFin = new Date(dateDebut);
     dateFin.setDate(dateDebut.getDate() + conventionData.nombreJours - 1);
 
-    // Créer la convention
+    // Créer la convention avec l'ID de l'utilisateur vérifié
     const convention = await Convention.create({
       ...conventionData,
       dateFin: dateFin.toISOString().split('T')[0],
       activitesIncluses,
-      createdBy
+      createdBy: user.id
     });
 
     // Attribuer automatiquement les chambres disponibles
@@ -160,7 +177,16 @@ class ConventionService {
       await convention.addRooms(roomIds);
     }
 
-    return await this.getConventionById(convention.id);
+    // Récupérer la convention avec toutes les informations incluant les chambres
+    const conventionWithRooms = await this.getConventionById(convention.id);
+    
+    // Ajouter les détails de sélection des chambres à la réponse
+    const response = {
+      ...conventionWithRooms.toJSON(),
+      roomSelectionDetails: roomSelection.details
+    };
+
+    return response;
   }
 
   // Sélectionner automatiquement les chambres disponibles
@@ -314,16 +340,39 @@ class ConventionService {
       details: {
         STANDARD: {
           needed: configChambres.STANDARD,
-          selected: selectedRooms.filter(room => room.type === 'STANDARD').length
+          selected: selectedRooms.filter(room => room.type === 'STANDARD').length,
+          rooms: selectedRooms.filter(room => room.type === 'STANDARD').map(room => ({
+            id: room.id,
+            number: room.number,
+            type: room.type,
+            basePrice: room.basePrice,
+            capacity: room.capacity
+          }))
         },
         VIP: {
           needed: configChambres.VIP,
-          selected: selectedRooms.filter(room => room.type === 'VIP').length
+          selected: selectedRooms.filter(room => room.type === 'VIP').length,
+          rooms: selectedRooms.filter(room => room.type === 'VIP').map(room => ({
+            id: room.id,
+            number: room.number,
+            type: room.type,
+            basePrice: room.basePrice,
+            capacity: room.capacity
+          }))
         },
         SUITE: {
           needed: configChambres.SUITE,
-          selected: selectedRooms.filter(room => room.type === 'SUITE').length
-        }
+          selected: selectedRooms.filter(room => room.type === 'SUITE').length,
+          rooms: selectedRooms.filter(room => room.type === 'SUITE').map(room => ({
+            id: room.id,
+            number: room.number,
+            type: room.type,
+            basePrice: room.basePrice,
+            capacity: room.capacity
+          }))
+        },
+        totalSelected: selectedRooms.length,
+        totalNeeded: configChambres.STANDARD + configChambres.VIP + configChambres.SUITE
       }
     };
   }
@@ -405,11 +454,17 @@ class ConventionService {
 
       // Mettre à jour les chambres de la convention
       await convention.setRooms(selectedRooms.rooms.map(room => room.id));
+      
+      // Ajouter les détails de sélection des chambres à la réponse
+      updateData.roomSelectionDetails = selectedRooms.details;
     }
 
     await convention.update(updateData);
 
-    return await this.getConventionById(convention.id);
+    // Récupérer la convention mise à jour avec toutes les informations
+    const updatedConvention = await this.getConventionById(convention.id);
+    
+    return updatedConvention;
   }
 
   // Vérifier la disponibilité des chambres pour une convention
@@ -608,6 +663,14 @@ class ConventionService {
             [Op.like]: `%${nomSociete}%` 
           }
         },
+        include: [
+          {
+            model: Room,
+            as: 'rooms',
+            through: { attributes: [] },
+            attributes: ['id', 'number', 'type', 'basePrice', 'extraPersonPrice', 'capacity', 'isActive', 'status']
+          }
+        ],
         order: [['createdAt', 'DESC']]
       });
     } catch (error) {
@@ -621,10 +684,66 @@ class ConventionService {
     try {
       return await Convention.findAll({
         where: { statut: 'ACTIVE' },
+        include: [
+          {
+            model: Room,
+            as: 'rooms',
+            through: { attributes: [] },
+            attributes: ['id', 'number', 'type', 'basePrice', 'extraPersonPrice', 'capacity', 'isActive', 'status']
+          }
+        ],
         order: [['createdAt', 'DESC']]
       });
     } catch (error) {
       console.error('Erreur dans getActiveConventions:', error);
+      throw error;
+    }
+  }
+
+  // Obtenir les détails complets d'une convention avec toutes ses informations
+  static async getConventionDetails(id) {
+    try {
+      const convention = await Convention.findByPk(id, {
+        include: [
+          {
+            model: User,
+            as: 'creator',
+            attributes: ['id', 'username', 'role']
+          },
+          {
+            model: Room,
+            as: 'rooms',
+            through: { attributes: [] },
+            attributes: ['id', 'number', 'type', 'basePrice', 'extraPersonPrice', 'capacity', 'isActive', 'status']
+          }
+        ]
+      });
+
+      if (!convention) {
+        throw new Error('Convention non trouvée');
+      }
+
+      // Calculer les statistiques des chambres
+      const roomStats = {
+        total: convention.rooms.length,
+        byType: {
+          STANDARD: convention.rooms.filter(room => room.type === 'STANDARD').length,
+          VIP: convention.rooms.filter(room => room.type === 'VIP').length,
+          SUITE: convention.rooms.filter(room => room.type === 'SUITE').length
+        },
+        active: convention.rooms.filter(room => room.isActive).length,
+        reserved: convention.rooms.filter(room => room.status === 'RÉSERVÉE').length
+      };
+
+      // Ajouter les statistiques à la réponse
+      const response = {
+        ...convention.toJSON(),
+        roomStats
+      };
+
+      return response;
+    } catch (error) {
+      console.error('Erreur dans getConventionDetails:', error);
       throw error;
     }
   }

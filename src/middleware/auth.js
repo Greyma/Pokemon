@@ -72,3 +72,65 @@ exports.hasRole = (roles = []) => {
     });
   };
 };
+
+// Middleware pour valider l'utilisateur depuis le token
+exports.validateUserFromToken = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Utilisateur non authentifié'
+    });
+  }
+
+  // Vérifier que l'utilisateur a un ID valide
+  if (!req.user.id) {
+    return res.status(401).json({
+      success: false,
+      message: 'Token invalide : ID utilisateur manquant'
+    });
+  }
+
+  // Vérifier que l'utilisateur est actif
+  if (req.user.isActive === false) {
+    return res.status(403).json({
+      success: false,
+      message: 'Compte utilisateur désactivé'
+    });
+  }
+
+  // Vérifier que l'utilisateur a un rôle valide
+  if (!req.user.role || !['MANAGER', 'RECEPTIONIST'].includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Rôle utilisateur invalide'
+    });
+  }
+
+  next();
+};
+
+// Middleware pour vérifier que l'utilisateur est un manager
+exports.requireManager = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Utilisateur non authentifié'
+    });
+  }
+
+  if (req.user.role !== 'MANAGER') {
+    return res.status(403).json({
+      success: false,
+      message: 'Droits de manager requis'
+    });
+  }
+
+  if (req.user.isActive === false) {
+    return res.status(403).json({
+      success: false,
+      message: 'Compte utilisateur désactivé'
+    });
+  }
+
+  next();
+};

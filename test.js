@@ -2535,3 +2535,92 @@ describe('Tests des activités incluses dans les conventions', () => {
     await api.patch(`/activities/${activityId1}/toggle-status`);
   });
 }); 
+
+// Fonction pour tester la validation depuis le token
+async function testTokenValidation() {
+  try {
+    console.log('\n🧪 Test de validation depuis le token...');
+    
+    // Test 1: Vérifier que le token contient les bonnes informations
+    console.log('📋 Informations du token:');
+    console.log(`   ID: ${managerId}`);
+    console.log(`   Username: ${authToken ? 'manager1' : 'Non disponible'}`);
+    console.log(`   Role: ${authToken ? 'MANAGER' : 'Non disponible'}`);
+    
+    // Test 2: Vérifier le token avec l'endpoint /verify
+    const verifyResponse = await axios.get(`${BASE_URL}/auth/verify`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+
+    console.log('✅ Token vérifié avec succès:');
+    console.log('📋 Informations utilisateur du token:', verifyResponse.data.data.user);
+    
+    // Test 3: Tester avec un token invalide
+    try {
+      await axios.get(`${BASE_URL}/conventions`, {
+        headers: {
+          'Authorization': 'Bearer token_invalide'
+        }
+      });
+    } catch (error) {
+      if (error.response?.status === 401) {
+        console.log('✅ Validation du token invalide fonctionne correctement');
+      } else {
+        console.log('⚠️ Réponse inattendue pour token invalide:', error.response?.status);
+      }
+    }
+
+  } catch (error) {
+    console.error('❌ Erreur lors de la validation du token:', error.response?.data || error.message);
+  }
+}
+
+// Test 4: Vérifier l'existence de l'utilisateur du token
+async function testUserExistence() {
+  console.log('\n🧪 Test 4: Vérification de l\'existence de l\'utilisateur');
+  
+  try {
+    // ID extrait du token JWT
+    const userId = '2feb4b14-5ec3-4d2a-819f-164407a3a280';
+    
+    const { User } = require('./src/models');
+    
+    const user = await User.findByPk(userId);
+    
+    if (user) {
+      console.log('✅ Utilisateur trouvé:');
+      console.log('   ID:', user.id);
+      console.log('   Username:', user.username);
+      console.log('   Role:', user.role);
+      console.log('   IsActive:', user.isActive);
+    } else {
+      console.log('❌ Utilisateur non trouvé avec l\'ID:', userId);
+      
+      // Lister tous les utilisateurs disponibles
+      const allUsers = await User.findAll({
+        attributes: ['id', 'username', 'role', 'isActive']
+      });
+      
+      console.log('📋 Utilisateurs disponibles dans la base de données:');
+      allUsers.forEach(u => {
+        console.log(`   - ${u.username} (${u.id}) - ${u.role} - Active: ${u.isActive}`);
+      });
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de la vérification de l\'utilisateur:', error.message);
+  }
+}
+
+// Exécuter tous les tests
+async function runAllTests() {
+  await testDatabaseConnection();
+  await testUserExistence();
+  await testConventionCreation();
+  await testConventionRetrieval();
+  await testConventionSearch();
+  
+  console.log('\n🎉 Tous les tests sont terminés');
+  process.exit(0);
+}

@@ -114,7 +114,144 @@ POST /api/conventions
         "type": "STANDARD"
       }
       // ... autres chambres attribuées automatiquement
-    ]
+    ],
+    "roomSelectionDetails": {
+      "STANDARD": {
+        "needed": 5,
+        "selected": 5,
+        "rooms": [
+          {
+            "id": 1,
+            "number": "101",
+            "type": "STANDARD",
+            "basePrice": 5000,
+            "capacity": 2
+          }
+          // ... autres chambres STANDARD
+        ]
+      },
+      "VIP": {
+        "needed": 2,
+        "selected": 2,
+        "rooms": [
+          {
+            "id": 15,
+            "number": "201",
+            "type": "VIP",
+            "basePrice": 8000,
+            "capacity": 3
+          }
+          // ... autres chambres VIP
+        ]
+      },
+      "SUITE": {
+        "needed": 1,
+        "selected": 1,
+        "rooms": [
+          {
+            "id": 25,
+            "number": "301",
+            "type": "SUITE",
+            "basePrice": 12000,
+            "capacity": 4
+          }
+        ]
+      },
+      "totalSelected": 8,
+      "totalNeeded": 8
+    }
+  }
+}
+```
+
+### Obtenir toutes les conventions avec leurs chambres
+
+**GET** `/api/conventions`
+
+**Réponse :**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "numeroConvention": "CONV-2025-001",
+      "nomSociete": "Entreprise ABC",
+      "dateDebut": "2025-09-01",
+      "dateFin": "2025-09-07",
+      "statut": "ACTIVE",
+      "creator": {
+        "id": "user-uuid",
+        "username": "manager1",
+        "role": "MANAGER"
+      },
+      "rooms": [
+        {
+          "id": 1,
+          "number": "101",
+          "type": "STANDARD",
+          "basePrice": 5000,
+          "extraPersonPrice": 1000,
+          "capacity": 2,
+          "isActive": true,
+          "status": "DISPONIBLE"
+        }
+        // ... autres chambres
+      ]
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 5,
+    "totalItems": 50,
+    "itemsPerPage": 10
+  }
+}
+```
+
+### Obtenir les détails complets d'une convention
+
+**GET** `/api/conventions/:id/details`
+
+**Réponse :**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "numeroConvention": "CONV-2025-001",
+    "nomSociete": "Entreprise ABC",
+    "dateDebut": "2025-09-01",
+    "dateFin": "2025-09-07",
+    "statut": "ACTIVE",
+    "creator": {
+      "id": "user-uuid",
+      "username": "manager1",
+      "role": "MANAGER"
+    },
+    "rooms": [
+      {
+        "id": 1,
+        "number": "101",
+        "type": "STANDARD",
+        "basePrice": 5000,
+        "extraPersonPrice": 1000,
+        "capacity": 2,
+        "isActive": true,
+        "status": "DISPONIBLE"
+      }
+      // ... autres chambres
+    ],
+    "roomStats": {
+      "total": 8,
+      "byType": {
+        "STANDARD": 5,
+        "VIP": 2,
+        "SUITE": 1
+      },
+      "active": 8,
+      "reserved": 0
+    }
   }
 }
 ```
