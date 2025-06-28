@@ -48,7 +48,6 @@ app.use((req, res, next) => {
   });
   next();
 });
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);

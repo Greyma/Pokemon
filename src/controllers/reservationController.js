@@ -1,4 +1,4 @@
-const { Reservation, Room, User } = require('../models');
+const { Reservation, Room, User, Convention } = require('../models');
 const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs').promises;
@@ -24,12 +24,13 @@ exports.createReservation = async (req, res) => {
       nomGarant,
       remarques,
       receptionnisteId,
-      receptionniste
+      receptionniste,
+      conventionId
     } = req.body;
 
     // Vérifier les données requises
     if (!reservationId || !nomClient || !email || !telephone || !adresse || !dateEntree || !dateSortie || 
-        !nombrePersonnes || !chambreId || !numeroChambre || !typeChambre || !montantTotal || !receptionnisteId || !receptionniste) {
+        !nombrePersonnes || !chambreId || !numeroChambre || !typeChambre || !receptionnisteId || !receptionniste) {
       return res.status(400).json({
         success: false,
         message: 'Données de réservation incomplètes'
@@ -55,33 +56,124 @@ exports.createReservation = async (req, res) => {
       });
     }
 
-    // Vérifier la disponibilité de la chambre
-    const existingReservation = await Reservation.findOne({
-      where: {
-        chambreId,
-        [Op.or]: [
-          {
-            dateEntree: {
-              [Op.between]: [checkIn, checkOut]
-            }
-          },
-          {
-            dateSortie: {
-              [Op.between]: [checkIn, checkOut]
-            }
-          }
-        ],
-        statut: {
-          [Op.notIn]: ['annulee']
-        }
-      }
-    });
+    let montantTotalFinal = montantTotal;
+    let paiementsFinal = paiements || [];
+    let statut = 'en_cours';
 
-    if (existingReservation) {
-      return res.status(400).json({
-        success: false,
-        message: 'Chambre non disponible pour les dates spécifiées'
+    // Si une conventionId est spécifiée, vérifier que la chambre appartient à cette convention
+    if (conventionId) {
+      const convention = await Convention.findByPk(conventionId, {
+        include: [
+          {
+            model: Room,
+            as: 'rooms',
+            through: { attributes: [] },
+            attributes: ['id']
+          }
+        ]
       });
+
+      if (!convention) {
+        return res.status(404).json({
+          success: false,
+          message: 'Convention non trouvée'
+        });
+      }
+
+      // Vérifier que la chambre appartient à la convention
+      const conventionRoomIds = convention.rooms.map(room => room.id);
+      if (!conventionRoomIds.includes(parseInt(chambreId))) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cette chambre n\'appartient pas à la convention spécifiée'
+        });
+      }
+
+      // Vérifier que les dates correspondent à la période de la convention
+      const conventionStart = new Date(convention.dateDebut);
+      const conventionEnd = new Date(convention.dateFin);
+      
+      if (checkIn < conventionStart || checkOut > conventionEnd) {
+        return res.status(400).json({
+          success: false,
+          message: 'Les dates de réservation doivent être dans la période de la convention'
+        });
+      }
+
+      // Forcer le prix à 0 et statut à validée
+      montantTotalFinal = 0;
+      paiementsFinal = [];
+      statut = 'validee';
+    } else {
+      // Vérifier la disponibilité de la chambre (réservations normales)
+      const existingReservation = await Reservation.findOne({
+        where: {
+          chambreId,
+          [Op.or]: [
+            {
+              dateEntree: {
+                [Op.between]: [checkIn, checkOut]
+              }
+            },
+            {
+              dateSortie: {
+                [Op.between]: [checkIn, checkOut]
+              }
+            }
+          ],
+          statut: {
+            [Op.notIn]: ['annulee']
+          }
+        }
+      });
+
+      if (existingReservation) {
+        return res.status(400).json({
+          success: false,
+          message: 'Chambre non disponible pour les dates spécifiées (déjà réservée)'
+        });
+      }
+
+      // Vérifier la disponibilité de la chambre (conventions)
+      const existingConvention = await Convention.findOne({
+        where: {
+          statut: 'ACTIVE',
+          [Op.or]: [
+            {
+              dateDebut: { [Op.between]: [checkIn, checkOut] }
+            },
+            {
+              dateFin: { [Op.between]: [checkIn, checkOut] }
+            },
+            {
+              [Op.and]: [
+                { dateDebut: { [Op.lte]: checkIn } },
+                { dateFin: { [Op.gte]: checkOut } }
+              ]
+            }
+          ]
+        },
+        include: [
+          {
+            model: Room,
+            as: 'rooms',
+            through: { attributes: [] },
+            where: { id: chambreId },
+            required: true
+          }
+        ]
+      });
+
+      if (existingConvention) {
+        return res.status(400).json({
+          success: false,
+          message: 'Chambre non disponible pour les dates spécifiées (occupée par une convention)'
+        });
+      }
+
+      // Calculer le montant total des paiements
+      const totalPaiements = paiements ? paiements.reduce((sum, paiement) => sum + paiement.montant, 0) : 0;
+      statut = totalPaiements >= montantTotal ? 'validee' : 'en_cours';
     }
 
     // Gérer l'upload du fichier PDF si présent
@@ -121,12 +213,6 @@ exports.createReservation = async (req, res) => {
       preuvePaiementPath = `/uploads/payments/${fileName}`;
     }
 
-    // Calculer le montant total des paiements
-    const totalPaiements = paiements ? paiements.reduce((sum, paiement) => sum + paiement.montant, 0) : 0;
-    
-    // Déterminer le statut initial en fonction des paiements
-    const statut = totalPaiements >= montantTotal ? 'validee' : 'en_cours';
-
     // Créer la réservation
     const reservation = await Reservation.create({
       reservationId,
@@ -140,15 +226,16 @@ exports.createReservation = async (req, res) => {
       chambreId,
       numeroChambre,
       typeChambre,
-      montantTotal,
-      paiements: paiements || [],
+      montantTotal: montantTotalFinal,
+      paiements: paiementsFinal,
       nomGarant: nomGarant || '',
       remarques: remarques || '',
       receptionnisteId,
       statut,
       dateCreation: new Date(),
       receptionniste,
-      preuvePaiement: preuvePaiementPath
+      preuvePaiement: preuvePaiementPath,
+      conventionId: conventionId || null
     });
 
     // Mettre à jour le statut de la chambre
@@ -170,7 +257,7 @@ exports.createReservation = async (req, res) => {
 // Calculer le prix d'une réservation
 exports.calculatePrice = async (req, res) => {
   try {
-    const { checkInDate, checkOutDate, roomId, numberOfAdults } = req.body;
+    const { checkInDate, checkOutDate, roomId, numberOfAdults, numberOfChildren = 0, conventionId } = req.body;
 
     // Vérifier les données requises
     if (!checkInDate || !checkOutDate || !numberOfAdults) {
@@ -206,13 +293,14 @@ exports.calculatePrice = async (req, res) => {
         data: {
           totalPrice,
           priceDetails: {
-            basePrice,
+            basePrice: defaultBasePrice,
             extraPersonPrice: defaultExtraPersonPrice,
             nights,
             capacity: defaultCapacity,
             extraAdults,
             basePrice: basePrice,
-            extraPrice
+            extraPrice,
+            isConventionMember: false
           }
         }
       });
@@ -227,25 +315,80 @@ exports.calculatePrice = async (req, res) => {
       });
     }
 
+    // Vérifier si c'est une réservation conventionnée
+    let isConventionMember = false;
+    let convention = null;
+
+    if (conventionId) {
+      convention = await Convention.findByPk(conventionId, {
+        include: [
+          {
+            model: Room,
+            as: 'rooms',
+            through: { attributes: [] },
+            attributes: ['id']
+          }
+        ]
+      });
+
+      if (!convention) {
+        return res.status(404).json({
+          success: false,
+          message: 'Convention non trouvée'
+        });
+      }
+
+      // Vérifier que la chambre appartient à la convention
+      const conventionRoomIds = convention.rooms.map(r => r.id);
+      if (!conventionRoomIds.includes(parseInt(roomId))) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cette chambre n\'appartient pas à la convention spécifiée'
+        });
+      }
+
+      // Vérifier que les dates correspondent à la période de la convention
+      const conventionStart = new Date(convention.dateDebut);
+      const conventionEnd = new Date(convention.dateFin);
+      
+      if (checkIn < conventionStart || checkOut > conventionEnd) {
+        return res.status(400).json({
+          success: false,
+          message: 'Les dates de réservation doivent être dans la période de la convention'
+        });
+      }
+
+      isConventionMember = true;
+    }
+
     // Calculer le prix total
     const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
     const basePrice = room.basePrice * nights;
     const extraAdults = Math.max(0, numberOfAdults - room.capacity);
     const extraPrice = extraAdults * room.extraPersonPrice * nights;
-    const totalPrice = basePrice + extraPrice;
+    
+    // Pour les conventionnés, le prix est gratuit
+    const totalPrice = isConventionMember ? 0 : (basePrice + extraPrice);
 
     res.json({
       success: true,
       data: {
         totalPrice,
         priceDetails: {
-          basePrice,
+          basePrice: room.basePrice,
           extraPersonPrice: room.extraPersonPrice,
           nights,
           capacity: room.capacity,
           extraAdults,
           basePrice: basePrice,
-          extraPrice
+          extraPrice,
+          isConventionMember,
+          conventionInfo: isConventionMember ? {
+            numeroConvention: convention.numeroConvention,
+            nomSociete: convention.nomSociete,
+            dateDebut: convention.dateDebut,
+            dateFin: convention.dateFin
+          } : null
         }
       }
     });
@@ -262,6 +405,14 @@ exports.calculatePrice = async (req, res) => {
 exports.getAllReservations = async (req, res) => {
   try {
     const reservations = await Reservation.findAll({
+      include: [
+        {
+          model: Convention,
+          as: 'convention',
+          attributes: ['id', 'numeroConvention', 'nomSociete', 'dateDebut', 'dateFin'],
+          required: false
+        }
+      ],
       order: [['dateCreation', 'DESC']]
     });
 
@@ -281,7 +432,16 @@ exports.getAllReservations = async (req, res) => {
 // Récupérer une réservation par son ID
 exports.getReservationById = async (req, res) => {
   try {
-    const reservation = await Reservation.findByPk(req.params.id);
+    const reservation = await Reservation.findByPk(req.params.id, {
+      include: [
+        {
+          model: Convention,
+          as: 'convention',
+          attributes: ['id', 'numeroConvention', 'nomSociete', 'dateDebut', 'dateFin', 'contactPrincipal'],
+          required: false
+        }
+      ]
+    });
 
     if (!reservation) {
       return res.status(404).json({
@@ -526,26 +686,26 @@ exports.updateRealDates = async (req, res) => {
 // Obtenir les chambres disponibles
 exports.getAvailableRooms = async (req, res) => {
   try {
-    const { checkIn, checkOut } = req.query;
+    const { dateEntree, dateSortie, conventionId } = req.query;
 
-    if (!checkIn || !checkOut) {
+    if (!dateEntree || !dateSortie) {
       return res.status(400).json({
         success: false,
-        message: 'Les dates de check-in et check-out sont requises'
+        message: 'Les dates d\'entrée et de sortie sont requises'
       });
     }
 
-    const startDate = new Date(checkIn);
-    const endDate = new Date(checkOut);
+    const startDate = new Date(dateEntree);
+    const endDate = new Date(dateSortie);
 
     if (startDate >= endDate) {
       return res.status(400).json({
         success: false,
-        message: 'La date de check-out doit être postérieure à la date de check-in'
+        message: 'La date de sortie doit être postérieure à la date d\'entrée'
       });
     }
 
-    // Trouver les chambres réservées pour la période
+    // Trouver les chambres réservées pour la période (réservations normales)
     const reservedRooms = await Reservation.findAll({
       where: {
         [Op.or]: [
@@ -563,22 +723,107 @@ exports.getAvailableRooms = async (req, res) => {
           }
         ],
         statut: {
-          [Op.notIn]: ['annulee', 'terminee'] // Exclure les réservations annulées et terminées
+          [Op.notIn]: ['annulee', 'terminee']
         }
       },
       attributes: ['chambreId']
     });
-
     const reservedRoomIds = reservedRooms.map(r => r.chambreId);
 
-    // Trouver toutes les chambres disponibles
-    const availableRooms = await Room.findAll({
+    // Trouver les chambres occupées par des conventions pour la période
+    const conventionRooms = await Convention.findAll({
       where: {
-        id: { [Op.notIn]: reservedRoomIds },
-        isActive: true
+        [Op.or]: [
+          {
+            dateDebut: { [Op.between]: [startDate, endDate] }
+          },
+          {
+            dateFin: { [Op.between]: [startDate, endDate] }
+          },
+          {
+            [Op.and]: [
+              { dateDebut: { [Op.lte]: startDate } },
+              { dateFin: { [Op.gte]: endDate } }
+            ]
+          }
+        ],
+        statut: 'ACTIVE'
       },
-      attributes: ['id', 'number', 'type', 'basePrice', 'extraPersonPrice', 'capacity']
+      include: [
+        {
+          model: Room,
+          as: 'rooms',
+          through: { attributes: [] },
+          attributes: ['id']
+        }
+      ]
     });
+    const conventionRoomIds = conventionRooms.flatMap(conv => conv.rooms.map(room => room.id));
+    const allOccupiedRoomIds = [...new Set([...reservedRoomIds, ...conventionRoomIds])];
+
+    let availableRooms = [];
+
+    if (conventionId) {
+      // Recherche pour un conventionné : uniquement les chambres de la convention, disponibles
+      const convention = await Convention.findByPk(conventionId, {
+        include: [
+          {
+            model: Room,
+            as: 'rooms',
+            through: { attributes: [] },
+            attributes: ['id', 'number', 'type', 'basePrice', 'extraPersonPrice', 'capacity', 'isActive']
+          }
+        ]
+      });
+      
+      if (!convention) {
+        return res.status(404).json({
+          success: false,
+          message: 'Convention non trouvée'
+        });
+      }
+
+      // Vérifier la période
+      const conventionStart = new Date(convention.dateDebut);
+      const conventionEnd = new Date(convention.dateFin);
+      if (startDate < conventionStart || endDate > conventionEnd) {
+        return res.status(400).json({
+          success: false,
+          message: 'Les dates demandées ne correspondent pas à la période de la convention'
+        });
+      }
+
+      // Filtrer les chambres de la convention qui ne sont pas occupées
+      const availableConventionRooms = convention.rooms.filter(room =>
+        room.isActive && !allOccupiedRoomIds.includes(room.id)
+      ).map(room => ({
+        ...room.toJSON(),
+        isAvailable: true,
+        conventionInfo: {
+          numeroConvention: convention.numeroConvention,
+          nomSociete: convention.nomSociete,
+          dateDebut: convention.dateDebut,
+          dateFin: convention.dateFin
+        }
+      }));
+
+      availableRooms = availableConventionRooms;
+    } else {
+      // Recherche pour un non-conventionné : toutes les chambres libres, hors chambres de conventions actives
+      const allRooms = await Room.findAll({
+        where: {
+          isActive: true
+        },
+        attributes: ['id', 'number', 'type', 'basePrice', 'extraPersonPrice', 'capacity']
+      });
+
+      availableRooms = allRooms.filter(room => 
+        !allOccupiedRoomIds.includes(room.id)
+      ).map(room => ({
+        ...room.toJSON(),
+        isAvailable: true
+      }));
+    }
 
     res.json({
       success: true,
@@ -887,6 +1132,12 @@ exports.getRoomReservations = async (req, res) => {
           model: User,
           as: 'creator',
           attributes: ['id', 'nom', 'prenom']
+        },
+        {
+          model: Convention,
+          as: 'convention',
+          attributes: ['id', 'numeroConvention', 'nomSociete', 'dateDebut', 'dateFin'],
+          required: false
         }
       ]
     });
@@ -897,7 +1148,8 @@ exports.getRoomReservations = async (req, res) => {
       enCours: reservations.filter(r => r.statut === 'en_cours').length,
       validees: reservations.filter(r => r.statut === 'validee').length,
       terminees: reservations.filter(r => r.statut === 'terminee').length,
-      annulees: reservations.filter(r => r.statut === 'annulee').length
+      annulees: reservations.filter(r => r.statut === 'annulee').length,
+      convention: reservations.filter(r => r.conventionId).length
     };
 
     res.status(200).json({
@@ -917,6 +1169,68 @@ exports.getRoomReservations = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des réservations de la chambre'
+    });
+  }
+};
+
+// Obtenir toutes les réservations d'une convention
+exports.getConventionReservations = async (req, res) => {
+  try {
+    const { conventionId } = req.params;
+
+    // Vérifier si la convention existe
+    const convention = await Convention.findByPk(conventionId);
+    if (!convention) {
+      return res.status(404).json({
+        success: false,
+        message: 'Convention non trouvée'
+      });
+    }
+
+    // Récupérer toutes les réservations de la convention
+    const reservations = await Reservation.findAll({
+      where: {
+        conventionId: conventionId
+      },
+      order: [
+        ['dateCreation', 'DESC']
+      ],
+      include: [
+        {
+          model: Room,
+          attributes: ['id', 'number', 'type']
+        }
+      ]
+    });
+
+    // Calculer les statistiques
+    const stats = {
+      total: reservations.length,
+      enCours: reservations.filter(r => r.statut === 'en_cours').length,
+      validees: reservations.filter(r => r.statut === 'validee').length,
+      terminees: reservations.filter(r => r.statut === 'terminee').length,
+      annulees: reservations.filter(r => r.statut === 'annulee').length
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        convention: {
+          id: convention.id,
+          numeroConvention: convention.numeroConvention,
+          nomSociete: convention.nomSociete,
+          dateDebut: convention.dateDebut,
+          dateFin: convention.dateFin
+        },
+        stats,
+        reservations
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des réservations de la convention:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des réservations de la convention'
     });
   }
 }; 

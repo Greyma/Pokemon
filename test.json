@@ -118,6 +118,269 @@
     }
   ],
   "testCases": {
+    "conventions": {
+      "valid": [
+        {
+          "description": "Convention standard",
+          "data": {
+            "numeroConvention": "CONV-2025-001",
+            "nomSociete": "Entreprise Test SARL",
+            "telephone": "+213 555 123 456",
+            "email": "contact@entreprise-test.dz",
+            "adresse": "123 Rue de la Paix, Alger",
+            "contactPrincipal": "Ahmed Benali",
+            "dateDebut": "2025-07-01",
+            "nombreJours": 5,
+            "prixConvention": 15000,
+            "chambresStandard": 3,
+            "chambresVIP": 1,
+            "chambresSuite": 0,
+            "nombreAdultesMaxParChambre": 2,
+            "conditionsSpeciales": "Paiement à 30 jours",
+            "description": "Convention pour séminaire d'entreprise",
+            "notes": "Client régulier"
+          }
+        },
+        {
+          "description": "Convention VIP",
+          "data": {
+            "numeroConvention": "CONV-2025-002",
+            "nomSociete": "Société VIP SARL",
+            "telephone": "+213 555 789 012",
+            "email": "contact@societe-vip.dz",
+            "adresse": "456 Avenue des Champs, Oran",
+            "contactPrincipal": "Fatima Zohra",
+            "dateDebut": "2025-08-01",
+            "nombreJours": 7,
+            "prixConvention": 25000,
+            "chambresStandard": 2,
+            "chambresVIP": 3,
+            "chambresSuite": 1,
+            "nombreAdultesMaxParChambre": 3,
+            "conditionsSpeciales": "Paiement à 45 jours",
+            "description": "Convention VIP pour événement spécial",
+            "notes": "Client premium"
+          }
+        },
+        {
+          "description": "Convention gratuite",
+          "data": {
+            "numeroConvention": "CONV-2025-003",
+            "nomSociete": "ONG Humanitaire",
+            "telephone": "+213 555 345 678",
+            "email": "contact@ong-humanitaire.dz",
+            "adresse": "789 Rue de l'Espoir, Constantine",
+            "contactPrincipal": "Karim Boudjemaa",
+            "dateDebut": "2025-09-01",
+            "nombreJours": 3,
+            "prixConvention": 0,
+            "chambresStandard": 5,
+            "chambresVIP": 0,
+            "chambresSuite": 0,
+            "nombreAdultesMaxParChambre": 2,
+            "conditionsSpeciales": "Convention gratuite pour cause humanitaire",
+            "description": "Hébergement pour mission humanitaire",
+            "notes": "Convention spéciale"
+          }
+        }
+      ],
+      "invalid": [
+        {
+          "description": "Numéro de convention dupliqué",
+          "data": {
+            "numeroConvention": "CONV-2025-001",
+            "nomSociete": "Entreprise Dupliquée",
+            "telephone": "+213 555 999 999",
+            "dateDebut": "2025-10-01",
+            "nombreJours": 3,
+            "prixConvention": 10000,
+            "chambresStandard": 2,
+            "chambresVIP": 0,
+            "chambresSuite": 0,
+            "nombreAdultesMaxParChambre": 2
+          },
+          "expectedError": "Un numéro de convention avec ce numéro existe déjà"
+        },
+        {
+          "description": "Dates invalides",
+          "data": {
+            "numeroConvention": "CONV-2025-004",
+            "nomSociete": "Entreprise Test",
+            "telephone": "+213 555 111 111",
+            "dateDebut": "2025-12-31",
+            "nombreJours": 1,
+            "prixConvention": 5000,
+            "chambresStandard": 1,
+            "chambresVIP": 0,
+            "chambresSuite": 0,
+            "nombreAdultesMaxParChambre": 2
+          },
+          "expectedError": "La date de fin doit être postérieure à la date de début"
+        },
+        {
+          "description": "Aucune chambre configurée",
+          "data": {
+            "numeroConvention": "CONV-2025-005",
+            "nomSociete": "Entreprise Test",
+            "telephone": "+213 555 222 222",
+            "dateDebut": "2025-11-01",
+            "nombreJours": 3,
+            "prixConvention": 5000,
+            "chambresStandard": 0,
+            "chambresVIP": 0,
+            "chambresSuite": 0,
+            "nombreAdultesMaxParChambre": 2
+          },
+          "expectedError": "Au moins une chambre doit être configurée pour la convention"
+        },
+        {
+          "description": "Nombre d'adultes invalide",
+          "data": {
+            "numeroConvention": "CONV-2025-006",
+            "nomSociete": "Entreprise Test",
+            "telephone": "+213 555 333 333",
+            "dateDebut": "2025-11-01",
+            "nombreJours": 3,
+            "prixConvention": 5000,
+            "chambresStandard": 2,
+            "chambresVIP": 0,
+            "chambresSuite": 0,
+            "nombreAdultesMaxParChambre": 5
+          },
+          "expectedError": "Le nombre maximum d'adultes par chambre doit être entre 1 et 4"
+        },
+        {
+          "description": "Prix négatif",
+          "data": {
+            "numeroConvention": "CONV-2025-007",
+            "nomSociete": "Entreprise Test",
+            "telephone": "+213 555 444 444",
+            "dateDebut": "2025-11-01",
+            "nombreJours": 3,
+            "prixConvention": -1000,
+            "chambresStandard": 2,
+            "chambresVIP": 0,
+            "chambresSuite": 0,
+            "nombreAdultesMaxParChambre": 2
+          },
+          "expectedError": "Le prix de la convention ne peut pas être négatif"
+        }
+      ],
+      "reservations": {
+        "conventionne": [
+          {
+            "description": "Réservation conventionnée standard",
+            "data": {
+              "reservationId": "RES-CONV-001",
+              "nomClient": "Ahmed Benali",
+              "email": "ahmed.benali@societe-test.dz",
+              "telephone": "+213 555 333 444",
+              "adresse": "789 Avenue de la République, Alger",
+              "dateEntree": "2025-09-01",
+              "dateSortie": "2025-09-03",
+              "nombrePersonnes": 2,
+              "montantTotal": 0,
+              "conventionId": null, 
+              "paiements": [],
+              "nomGarant": "",
+              "remarques": "Membre de la convention",
+              "receptionnisteId": "REC001",
+              "statut": "validee",
+              "dateCreation": "2025-08-30T14:00:00.000Z",
+              "receptionniste": "Admin"
+            }
+          },
+          {
+            "description": "Réservation conventionnée VIP",
+            "data": {
+              "reservationId": "RES-CONV-002",
+              "nomClient": "Fatima Zohra",
+              "email": "fatima.zohra@societe-vip.dz",
+              "telephone": "+213 555 555 666",
+              "adresse": "456 Rue des VIP, Oran",
+              "dateEntree": "2025-08-01",
+              "dateSortie": "2025-08-05",
+              "nombrePersonnes": 3,
+              "montantTotal": 0,
+              "conventionId": null, 
+              "paiements": [],
+              "nomGarant": "",
+              "remarques": "Membre VIP de la convention",
+              "receptionnisteId": "REC001",
+              "statut": "validee",
+              "dateCreation": "2025-07-30T10:00:00.000Z",
+              "receptionniste": "Admin"
+            }
+          }
+        ],
+        "particulier": [
+          {
+            "description": "Réservation particulier standard",
+            "data": {
+              "reservationId": "RES-PART-001",
+              "nomClient": "Mohammed Ali",
+              "email": "mohammed.ali@email.com",
+              "telephone": "+213 555 111 222",
+              "adresse": "456 Rue des Fleurs, Oran",
+              "dateEntree": "2025-10-01",
+              "dateSortie": "2025-10-03",
+              "nombrePersonnes": 2,
+              "montantTotal": 20000,
+              "conventionId": null,
+              "paiements": [
+                {
+                  "paiementId": "PAY-PART-001",
+                  "methodePaiement": "especes",
+                  "montant": 20000,
+                  "datePaiement": "2025-09-30T10:00:00.000Z",
+                  "numeroCCP": "",
+                  "numeroTransaction": "",
+                  "preuvePaiement": null
+                }
+              ],
+              "nomGarant": "",
+              "remarques": "Client particulier",
+              "receptionnisteId": "REC001",
+              "statut": "validee",
+              "dateCreation": "2025-09-30T10:00:00.000Z",
+              "receptionniste": "Admin"
+            }
+          },
+          {
+            "description": "Réservation particulier avec acompte",
+            "data": {
+              "reservationId": "RES-PART-002",
+              "nomClient": "Karim Boudjemaa",
+              "email": "karim.boudjemaa@email.com",
+              "telephone": "+213 555 777 888",
+              "adresse": "123 Rue de la Liberté, Constantine",
+              "dateEntree": "2025-10-15",
+              "dateSortie": "2025-10-18",
+              "nombrePersonnes": 4,
+              "montantTotal": 60000,
+              "conventionId": null,
+              "paiements": [
+                {
+                  "paiementId": "PAY-PART-002",
+                  "methodePaiement": "ccp",
+                  "montant": 30000,
+                  "datePaiement": "2025-10-10T14:00:00.000Z",
+                  "numeroCCP": "1234567890",
+                  "numeroTransaction": "TX123456",
+                  "preuvePaiement": "acompte_karim.pdf"
+                }
+              ],
+              "nomGarant": "",
+              "remarques": "Client avec acompte",
+              "receptionnisteId": "REC001",
+              "statut": "en_attente",
+              "dateCreation": "2025-10-10T14:00:00.000Z",
+              "receptionniste": "Admin"
+            }
+          }
+        ]
+      }
+    },
     "reservations": {
       "valid": [
         {

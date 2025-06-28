@@ -1,715 +1,344 @@
-# API de Gestion Hôtelière
 
-Cette API permet de gérer un système hôtelier complet avec la gestion des chambres, des réservations, des utilisateurs et des statistiques.
+### Utilisateurs par défaut
 
-## Configuration
+Le script `init-db.js` crée automatiquement :
 
-- Port: 3001
-- Base URL: `http://localhost:3001/api`
+- **Manager** : `manager1` / `manager123`
+- **Réceptionniste** : `receptionist1` / `receptionist123`
 
-## Authentification
+## 📚 API Documentation
 
-Toutes les routes (sauf `/auth/login`) nécessitent un token JWT dans le header :
-```
-Authorization: Bearer <token>
-```
+### Authentification
 
-### Routes d'authentification
+Toutes les routes nécessitent une authentification JWT.
 
-#### POST /auth/login
-Authentifie un utilisateur et retourne un token JWT.
-
-```json
+```bash
+# Connexion
+POST /api/auth/login
 {
-  "username": "string",
-  "password": "string"
+  "username": "manager1",
+  "password": "manager123"
 }
 ```
 
-## Gestion des Chambres
-
-### Routes des chambres
-
-#### GET /rooms
-Récupère la liste de toutes les chambres.
-
-#### POST /rooms
-Crée une nouvelle chambre (nécessite le rôle MANAGER).
-
-```json
-{
-  "number": "string",
-  "type": "STANDARD|VIP|SUITE",
-  "basePrice": number,
-  "extraPersonPrice": number,
-  "capacity": number,
-  "description": "string"
-}
+### Headers requis
 ```
-
-#### PUT /rooms/:id
-Modifie une chambre existante.
-
-```json
-{
-  "basePrice": number,
-  "extraPersonPrice": number,
-  "description": "string"
-}
-```
-
-#### PATCH /rooms/:id/status
-Modifie le statut d'une chambre.
-
-```json
-{
-  "isActive": boolean
-}
-```
-
-## Gestion des Réservations
-
-### Routes des réservations
-
-#### GET /reservations
-Récupère toutes les réservations.
-
-#### POST /reservations
-Crée une nouvelle réservation.
-
-```json
-{
-  "reservationId": "string",
-  "nomClient": "string",
-  "email": "string",
-  "telephone": "string",
-  "adresse": "string",
-  "dateEntree": "YYYY-MM-DD",
-  "dateSortie": "YYYY-MM-DD",
-  "nombrePersonnes": number,
-  "chambreId": "string",
-  "numeroChambre": number,
-  "typeChambre": "string",
-  "montantTotal": number,
-  "paiements": [
-    {
-      "paiementId": "string",
-      "methodePaiement": "especes|ccp",
-      "montant": number,
-      "datePaiement": "string",
-      "numeroCCP": "string",
-      "numeroTransaction": "string",
-      "preuvePaiement": "string"
-    }
-  ],
-  "nomGarant": "string",
-  "remarques": "string",
-  "receptionnisteId": "string",
-  "statut": "string"
-}
-```
-
-#### GET /reservations/:id
-Récupère une réservation spécifique.
-
-#### PATCH /reservations/:id/status
-Modifie le statut d'une réservation.
-
-```json
-{
-  "statut": "string"
-}
-```
-
-#### POST /reservations/:id/payments
-Ajoute un paiement à une réservation.
-
-```json
-{
-  "paiementId": "string",
-  "methodePaiement": "especes|ccp",
-  "montant": number,
-  "datePaiement": "string",
-  "numeroCCP": "string",
-  "numeroTransaction": "string",
-  "preuvePaiement": "string"
-}
-```
-
-### Statuts des Réservations
-- `validee` : Réservation confirmée et totalement payée
-- `en_cours` : Réservation en attente de paiement total
-- `terminee` : Séjour terminé
-- `annulee` : Réservation annulée
-
-### Gestion Automatique des Statuts
-Le système gère automatiquement les statuts en fonction des paiements :
-
-1. **Création de la réservation** :
-   - Si le montant total est payé : statut = `validee`
-   - Si le montant total n'est pas payé : statut = `en_cours`
-
-2. **Ajout d'un paiement** :
-   - Le système recalcule le total des paiements
-   - Si le total atteint ou dépasse le montant total : statut = `validee`
-   - Sinon : statut = `en_cours`
-
-### Exemple de Création avec Paiement
-```http
-POST /api/reservations
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "reservationId": "RES001",
-  "nomClient": "Ahmed Benali",
-  "montantTotal": 50000,
-  "paiements": [
-    {
-      "paiementId": "PAY001",
-      "methodePaiement": "especes",
-      "montant": 50000,
-      "datePaiement": "2024-03-20T14:00:00.000Z"
-    }
-  ]
-  // ... autres champs ...
-}
-```
-
-### Exemple d'Ajout de Paiement
-```http
-POST /api/reservations/RES001/payments
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "paiementId": "PAY002",
-  "methodePaiement": "especes",
-  "montant": 25000,
-  "datePaiement": "2024-03-21T10:00:00.000Z"
-}
-```
-
-### Dates de Réservation
-Chaque réservation contient deux types de dates :
-1. **Dates prévues** :
-   - `dateEntree` : Date d'arrivée prévue
-   - `dateSortie` : Date de départ prévue
-
-2. **Dates réelles** :
-   - `dateEntreeReelle` : Date effective d'arrivée du client
-   - `dateSortieReelle` : Date effective de départ du client
-
-### Mise à jour des Dates Réelles
-```http
-PATCH /api/reservations/:id/real-dates
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "dateEntreeReelle": "2024-03-20T14:00:00.000Z",
-  "dateSortieReelle": "2024-03-22T12:00:00.000Z"
-}
-```
-
-Le statut est automatiquement mis à jour :
-- `terminee` lorsque la date de sortie réelle est enregistrée
-
-### Annulation des Réservations
-```http
-PATCH /api/reservations/:id/status
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "statut": "annulee"
-}
-```
-
-Règles d'annulation selon le rôle :
-- **Réceptionniste** : 
-  - Peut annuler uniquement dans les 48h suivant la création de la réservation
-  - Message d'erreur : "Impossible d'annuler la réservation après 48h. Veuillez contacter le manager."
-- **Manager** :
-  - Peut annuler à tout moment
-  - Aucune restriction de délai
-
-## Gestion des Utilisateurs
-
-### Routes des utilisateurs
-
-#### POST /users
-Crée un nouvel utilisateur (nécessite le rôle MANAGER).
-
-```json
-{
-  "username": "string",
-  "password": "string",
-  "role": "RECEPTIONIST|MANAGER",
-  "firstName": "string",
-  "lastName": "string",
-  "email": "string"
-}
-```
-
-#### PUT /users/:id
-Modifie un utilisateur existant.
-
-```json
-{
-  "firstName": "string",
-  "lastName": "string",
-  "email": "string"
-}
-```
-
-#### PATCH /users/:id/status
-Désactive un utilisateur.
-
-```json
-{
-  "isActive": boolean
-}
-```
-
-## Statistiques
-
-### Routes des statistiques
-
-#### GET /statistics/occupation
-Récupère les statistiques d'occupation.
-
-#### GET /statistics/revenue
-Récupère les statistiques de revenus.
-
-```json
-{
-  "period": "YYYY-MM"
-}
-```
-
-#### GET /statistics/popular-rooms
-Récupère les statistiques des chambres populaires.
-
-```json
-{
-  "period": "YYYY-MM"
-}
-```
-
-#### GET /statistics/clients
-Récupère les statistiques des clients.
-
-#### GET /statistics/by-room-type
-Récupère les statistiques par type de chambre.
-
-## Suivi Financier
-
-### Routes financières
-
-#### GET /finance/daily
-Récupère le suivi quotidien des paiements.
-
-```json
-{
-  "date": "YYYY-MM-DD"
-}
-```
-
-#### GET /finance/by-receptionist
-Récupère le suivi financier par réceptionniste.
-
-```json
-{
-  "startDate": "YYYY-MM-DD",
-  "endDate": "YYYY-MM-DD"
-}
-```
-
-#### GET /finance/by-period
-Récupère le suivi financier par période.
-
-```json
-{
-  "startDate": "YYYY-MM-DD",
-  "endDate": "YYYY-MM-DD"
-}
-```
-
-#### GET /finance/employee
-Récupère le suivi financier par employé.
-
-## Maintenance
-
-### Routes de maintenance
-
-#### POST /maintenance
-Active/désactive le mode maintenance.
-
-```json
-{
-  "isActive": boolean
-}
-```
-
-## Codes d'erreur
-
-- 200: Succès
-- 201: Création réussie
-- 400: Données invalides
-- 401: Non authentifié
-- 404: Ressource non trouvée
-- 500: Erreur serveur
-
-## Rôles et Permissions
-
-- MANAGER: Accès complet à toutes les fonctionnalités
-- RECEPTIONIST: Accès limité aux réservations et aux paiements
-
-## Exemples d'utilisation
-
-### Création d'une réservation
-
-```javascript
-const response = await axios.post('/api/reservations', {
-  reservationId: "RES001",
-  nomClient: "Ahmed Benali",
-  email: "ahmed.benali@example.com",
-  telephone: "+213 555 123 456",
-  adresse: "12 Rue de la Liberté, Alger",
-  dateEntree: "2025-06-10",
-  dateSortie: "2025-06-15",
-  nombrePersonnes: 2,
-  chambreId: "room_id",
-  numeroChambre: 101,
-  typeChambre: "STANDARD",
-  montantTotal: 40000,
-  paiements: [
-    {
-      paiementId: "PAY001",
-      methodePaiement: "especes",
-      montant: 40000,
-      datePaiement: "2025-06-09T14:30:00.000Z"
-    }
-  ],
-  statut: "validee"
-});
-```
-
-### Calcul du prix d'une réservation
-
-```javascript
-const response = await axios.post('/api/reservations/calculate-price', {
-  roomId: "room_id",
-  numberOfAdults: 2,
-  numberOfChildren: 0,
-  checkInDate: "2025-07-01",
-  checkOutDate: "2025-07-03"
-});
-```
-
-### Calcul de l'acompte
-
-```javascript
-const response = await axios.post('/api/reservations/calculate-deposit', {
-  roomId: "room_id",
-  totalPrice: 2000,
-  checkInDate: "2025-07-01",
-  checkOutDate: "2025-07-03",
-  numberOfAdults: 2,
-  numberOfChildren: 0
-});
-```
-
-## Gestion des Fichiers
-
-### Upload des Preuves de Paiement
-
-Il y a deux façons d'envoyer une preuve de paiement :
-
-1. **Lors de la création de la réservation** :
-   - Envoyer le fichier PDF directement avec les données de réservation
-   - Utiliser `multipart/form-data` avec le champ `preuvePaiement` pour le fichier
-
-```javascript
-// Exemple de création de réservation avec preuve de paiement
-const formData = new FormData();
-formData.append('reservationId', 'RES001');
-formData.append('nomClient', 'Ahmed Benali');
-// ... autres champs de réservation ...
-formData.append('preuvePaiement', pdfFile); // Fichier PDF
-
-const response = await axios.post('/api/reservations', formData, {
-  headers: {
-    'Content-Type': 'multipart/form-data'
-  }
-});
-```
-
-2. **Pour une réservation existante** :
-   - Utiliser l'endpoint dédié `/api/reservations/upload/payment-proof`
-   - Nécessite l'ID de la réservation et l'ID du paiement
-
-```javascript
-const formData = new FormData();
-formData.append('file', pdfFile);
-formData.append('reservationId', 'RES001');
-formData.append('paymentId', 'PAY001');
-
-const response = await axios.post('/api/reservations/upload/payment-proof', formData, {
-  headers: {
-    'Content-Type': 'multipart/form-data'
-  }
-});
-```
-
-### Structure des Dossiers
-
-Les fichiers PDF sont stockés dans la structure suivante :
-```
-/uploads/
-  └── payments/
-      ├── RES001_20250609.pdf
-      ├── RES001_PAY001_20250610.pdf
-      └── ...
-```
-
-### Format des Noms de Fichiers
-
-Les fichiers sont nommés selon le format suivant :
-- Pour les réservations : `{reservationId}_{timestamp}.pdf`
-- Pour les paiements : `{reservationId}_{paymentId}_{timestamp}.pdf`
-
-### Limitations
-
-- Taille maximale du fichier : 5MB
-- Format accepté : PDF uniquement
-- Nombre maximum de fichiers par paiement : 1
-
-### Accès aux Fichiers
-
-Les fichiers PDF sont accessibles via l'URL :
-```
-http://localhost:3001/uploads/payments/{fileName}
-```
-
-## Sécurité et Authentification
-
-### Rôles et Permissions
-1. **Manager** :
-   - Accès complet à toutes les fonctionnalités du système
-   - Peut effectuer toutes les opérations de réservation
-   - Peut gérer les paiements et les preuves de paiement
-   - Peut annuler les réservations à tout moment
-   - Peut gérer les utilisateurs
-
-2. **Réceptionniste** :
-   - Peut créer et gérer les réservations
-   - Peut enregistrer les entrées/sorties des clients
-   - Peut gérer les paiements
-   - Annulation limitée aux 48h
-
-### Routes Protégées
-```javascript
-// Routes accessibles à tous les utilisateurs authentifiés
-GET /api/reservations/rooms          // Recherche de chambres disponibles
-GET /api/reservations               // Liste des réservations
-GET /api/reservations/:id           // Détails d'une réservation
-POST /api/reservations/calculate-price    // Calcul du prix
-POST /api/reservations/calculate-deposit  // Calcul de l'acompte
-
-// Routes accessibles aux réceptionnistes et managers
-POST /api/reservations              // Création d'une réservation
-PATCH /api/reservations/:id/real-dates    // Mise à jour des dates réelles
-POST /api/reservations/:id/payments       // Ajout d'un paiement
-POST /api/reservations/upload/payment-proof // Upload d'une preuve de paiement
-PATCH /api/reservations/:id/status        // Mise à jour du statut
-```
-
-### Headers Requis
-```http
 Authorization: Bearer <token>
 Content-Type: application/json
 ```
 
-## Recherche de Chambres Disponibles
+## 🏢 Système de Conventions
 
-### Endpoint
-```http
-GET /api/reservations/rooms
+### Création d'une convention
+
+```bash
+POST /api/conventions
 ```
 
-### Paramètres de Requête
-| Paramètre | Type | Description | Obligatoire |
-|-----------|------|-------------|-------------|
-| checkIn | string | Date d'arrivée (format: YYYY-MM-DD) | Oui |
-| checkOut | string | Date de départ (format: YYYY-MM-DD) | Oui |
-
-### Exemple de Requête
-```http
-GET /api/reservations/rooms?checkIn=2024-03-20&checkOut=2024-03-22
-Authorization: Bearer <token>
+**Corps de la requête :**
+```json
+{
+  "numeroConvention": "CONV-2025-001",
+  "nomSociete": "Entreprise ABC",
+  "telephone": "+213 555 123 456",
+  "email": "contact@entreprise-abc.dz",
+  "dateDebut": "2025-09-01",
+  "nombreJours": 7,
+  "prixConvention": 0,
+  "chambresStandard": 5,
+  "chambresVIP": 2,
+  "chambresSuite": 1,
+  "nombreAdultesMaxParChambre": 2,
+  "conditionsSpeciales": "Réservations gratuites pour les employés",
+  "description": "Convention annuelle de l'entreprise"
+}
 ```
 
-### Réponse Succès
+**Réponse :**
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": "CH001",
-      "number": "101",
-      "type": "STANDARD",
-      "basePrice": 10000,
-      "extraPersonPrice": 2000,
-      "capacity": 2
-    },
-    {
-      "id": "CH002",
-      "number": "201",
-      "type": "VIP",
-      "basePrice": 15000,
-      "extraPersonPrice": 3000,
-      "capacity": 3
-    }
-  ]
-}
-```
-
-### Réponse Erreur
-```json
-{
-  "success": false,
-  "message": "Les dates de check-in et check-out sont requises"
-}
-```
-ou
-```json
-{
-  "success": false,
-  "message": "La date de check-out doit être postérieure à la date de check-in"
-}
-```
-
-### Notes
-- Les chambres retournées sont celles qui sont :
-  - Actives (`isActive: true`)
-  - Non réservées pour la période demandée
-  - Non en maintenance
-- Les réservations annulées ou terminées ne sont pas prises en compte
-- Les dates doivent être valides et le check-out doit être postérieur au check-in
-
-### Exemple d'Utilisation avec Axios
-```javascript
-const searchAvailableRooms = async (checkIn, checkOut) => {
-  try {
-    const response = await axios.get('/api/reservations/rooms', {
-      params: {
-        checkIn: checkIn,
-        checkOut: checkOut
-      },
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    return response.data.data;
-  } catch (error) {
-    console.error('Erreur lors de la recherche des chambres:', error.response.data);
-    throw error;
-  }
-};
-
-// Utilisation
-const rooms = await searchAvailableRooms('2024-03-20', '2024-03-22');
-```
-
-## Historique des Réservations par Chambre
-
-### Endpoint
-```http
-GET /api/reservations/room/:roomId/reservations
-```
-
-### Paramètres
-| Paramètre | Type | Description |
-|-----------|------|-------------|
-| roomId | string | Identifiant de la chambre |
-
-### Exemple de Requête
-```http
-GET /api/reservations/room/CH001/reservations
-Authorization: Bearer <token>
-```
-
-### Réponse Succès
-```json
-{
-  "success": true,
+  "message": "Convention créée avec succès",
   "data": {
-    "room": {
-      "id": "CH001",
-      "number": "101",
-      "type": "STANDARD"
-    },
-    "stats": {
-      "total": 10,
-      "enCours": 2,
-      "validees": 3,
-      "terminees": 4,
-      "annulees": 1
-    },
-    "reservations": [
+    "id": "uuid",
+    "numeroConvention": "CONV-2025-001",
+    "nomSociete": "Entreprise ABC",
+    "dateDebut": "2025-09-01",
+    "dateFin": "2025-09-07",
+    "chambresStandard": 5,
+    "chambresVIP": 2,
+    "chambresSuite": 1,
+    "rooms": [
       {
-        "reservationId": "RES001",
-        "nomClient": "Ahmed Benali",
-        "dateEntree": "2024-03-20T14:00:00.000Z",
-        "dateSortie": "2024-03-22T12:00:00.000Z",
-        "statut": "validee",
-        "montantTotal": 50000,
-        "creator": {
-          "id": "USR001",
-          "nom": "Dupont",
-          "prenom": "Jean"
-        }
+        "id": "room-uuid-1",
+        "number": "101",
+        "type": "STANDARD"
       }
-      // ... autres réservations
+      // ... autres chambres attribuées automatiquement
     ]
   }
 }
 ```
 
-### Réponse Erreur
+### Fonctionnalités des conventions
+
+- **Attribution automatique des chambres** : Les chambres sont automatiquement sélectionnées selon les critères de la convention
+- **Vérification de disponibilité** : Le système vérifie que les chambres sont disponibles pour la période
+- **Gestion des statuts** : ACTIVE, INACTIVE, EXPIRED
+
+### Routes disponibles
+
+| Méthode | Route | Description | Rôle requis |
+|---------|-------|-------------|-------------|
+| POST | `/api/conventions` | Créer une convention | MANAGER |
+| GET | `/api/conventions` | Lister toutes les conventions | MANAGER, RECEPTIONIST |
+| GET | `/api/conventions/:id` | Détails d'une convention | MANAGER, RECEPTIONIST |
+| PUT | `/api/conventions/:id` | Modifier une convention | MANAGER |
+| DELETE | `/api/conventions/:id` | Supprimer une convention | MANAGER |
+| GET | `/api/conventions/search` | Rechercher par société | MANAGER, RECEPTIONIST |
+| GET | `/api/conventions/active` | Conventions actives | MANAGER, RECEPTIONIST |
+| GET | `/api/conventions/stats` | Statistiques | MANAGER, RECEPTIONIST |
+
+## 🛏️ Système de Réservations
+
+### Réservation pour particulier
+
+```bash
+POST /api/reservations
+```
+
+**Corps de la requête :**
 ```json
 {
-  "success": false,
-  "message": "Chambre non trouvée"
+  "reservationId": "RES-2025-001",
+  "nomClient": "Mohammed Ali",
+  "email": "mohammed.ali@email.com",
+  "telephone": "+213 555 111 222",
+  "adresse": "123 Rue des Fleurs, Alger",
+  "dateEntree": "2025-10-01",
+  "dateSortie": "2025-10-03",
+  "nombrePersonnes": 2,
+  "chambreId": "room-uuid",
+  "numeroChambre": 101,
+  "typeChambre": "STANDARD",
+  "montantTotal": 20000,
+  "paiements": [
+    {
+      "paiementId": "PAY-001",
+      "methodePaiement": "especes",
+      "montant": 20000,
+      "datePaiement": "2025-09-30T10:00:00.000Z"
+    }
+  ],
+  "nomGarant": "Ali Benali",
+  "remarques": "Arrivée tardive",
+  "receptionnisteId": "REC001",
+  "receptionniste": "Admin"
 }
 ```
 
-### Notes
-- Les réservations sont triées par date de création (du plus récent au plus ancien)
-- Les statistiques incluent le nombre total de réservations et leur répartition par statut
-- Les informations du créateur de la réservation sont incluses
+### Réservation pour conventionné (gratuit)
 
-### Exemple d'Utilisation avec Axios
-```javascript
-const getRoomReservations = async (roomId) => {
-  try {
-    const response = await axios.get(`/api/reservations/room/${roomId}/reservations`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    return response.data.data;
-  } catch (error) {
-    console.error('Erreur lors de la récupération des réservations:', error.response.data);
-    throw error;
-  }
-};
-
-// Utilisation
-const roomData = await getRoomReservations('CH001');
-console.log(`Statistiques de la chambre ${roomData.room.number}:`, roomData.stats);
+```bash
+POST /api/reservations
 ```
+
+**Corps de la requête :**
+```json
+{
+  "reservationId": "RES-CONV-001",
+  "nomClient": "Ahmed Benali",
+  "email": "ahmed.benali@societe-test.dz",
+  "telephone": "+213 555 333 444",
+  "adresse": "789 Avenue de la République, Alger",
+  "dateEntree": "2025-09-01",
+  "dateSortie": "2025-09-03",
+  "nombrePersonnes": 2,
+  "chambreId": "room-uuid-from-convention",
+  "numeroChambre": 101,
+  "typeChambre": "STANDARD",
+  "montantTotal": 0,
+  "conventionId": "convention-uuid",
+  "paiements": [],
+  "nomGarant": "",
+  "remarques": "Membre de la convention",
+  "receptionnisteId": "REC001",
+  "receptionniste": "Admin"
+}
+```
+
+### Calcul de prix
+
+```bash
+POST /api/reservations/calculate-price
+```
+
+**Corps de la requête :**
+```json
+{
+  "roomId": "room-uuid",
+  "numberOfAdults": 2,
+  "numberOfChildren": 0,
+  "checkInDate": "2025-10-01",
+  "checkOutDate": "2025-10-03",
+  "conventionId": "convention-uuid" // Optionnel
+}
+```
+
+**Réponse :**
+```json
+{
+  "success": true,
+  "data": {
+    "totalPrice": 0, // 0 si conventionné, sinon prix calculé
+    "priceDetails": {
+      "basePrice": 10000,
+      "extraPersonPrice": 0,
+      "numberOfNights": 2,
+      "isConventionMember": true
+    }
+  }
+}
+```
+
+### Recherche de chambres disponibles
+
+```bash
+GET /api/reservations/available-rooms?dateEntree=2025-10-01&dateSortie=2025-10-03&conventionId=convention-uuid
+```
+
+**Paramètres :**
+- `dateEntree` : Date d'arrivée (YYYY-MM-DD)
+- `dateSortie` : Date de départ (YYYY-MM-DD)
+- `conventionId` : ID de la convention (optionnel)
+
+### Routes disponibles
+
+| Méthode | Route | Description | Rôle requis |
+|---------|-------|-------------|-------------|
+| POST | `/api/reservations` | Créer une réservation | RECEPTIONIST |
+| GET | `/api/reservations` | Lister les réservations | RECEPTIONIST |
+| GET | `/api/reservations/:id` | Détails d'une réservation | RECEPTIONIST |
+| PUT | `/api/reservations/:id` | Modifier une réservation | RECEPTIONIST |
+| POST | `/api/reservations/calculate-price` | Calculer le prix | RECEPTIONIST |
+| GET | `/api/reservations/available-rooms` | Chambres disponibles | RECEPTIONIST |
+| GET | `/api/reservations/convention/:id/reservations` | Réservations d'une convention | RECEPTIONIST |
+
+## 💡 Exemples d'utilisation
+
+### Workflow complet : Convention + Réservations
+
+1. **Créer une convention**
+```bash
+curl -X POST http://localhost:3001/api/conventions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "numeroConvention": "CONV-2025-001",
+    "nomSociete": "TechCorp",
+    "dateDebut": "2025-09-01",
+    "nombreJours": 5,
+    "chambresStandard": 3,
+    "chambresVIP": 1
+  }'
+```
+
+2. **Récupérer les chambres de la convention**
+```bash
+curl -X GET http://localhost:3001/api/conventions/$CONVENTION_ID \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+3. **Créer une réservation conventionnée**
+```bash
+curl -X POST http://localhost:3001/api/reservations \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reservationId": "RES-CONV-001",
+    "nomClient": "John Doe",
+    "email": "john@techcorp.com",
+    "chambreId": "$ROOM_ID_FROM_CONVENTION",
+    "conventionId": "$CONVENTION_ID",
+    "montantTotal": 0
+  }'
+```
+
+### Calcul de prix pour conventionné
+
+```bash
+curl -X POST http://localhost:3001/api/reservations/calculate-price \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "roomId": "$ROOM_ID",
+    "numberOfAdults": 2,
+    "checkInDate": "2025-09-01",
+    "checkOutDate": "2025-09-03",
+    "conventionId": "$CONVENTION_ID"
+  }'
+```
+
+## 🧪 Tests
+
+### Lancer les tests
+
+```bash
+npm test
+```
+
+### Tests disponibles
+
+- **Tests d'authentification** : Connexion, gestion des rôles
+- **Tests de conventions** : CRUD complet, attribution automatique des chambres
+- **Tests de réservations** : Particuliers et conventionnés
+- **Tests de calcul de prix** : Tarification normale et gratuite
+- **Tests de validation** : Dates, disponibilité, permissions
+
+### Exemple de test
+
+```bash
+# Tous les tests
+npm test
+
+# Tests spécifiques
+npm test -- --testNamePattern="Conventions"
+npm test -- --testNamePattern="Réservations"
+```
+
+## 🔧 Dépannage
+
+### Problèmes courants
+
+1. **Erreur JWT_SECRET**
+   - Vérifier que le fichier `.env` existe avec `JWT_SECRET=votre_secret`
+
+2. **Chambres non attribuées à la convention**
+   - Vérifier que les chambres sont disponibles pour la période
+   - Vérifier que les types de chambres correspondent
+
+3. **Erreur 400 sur réservation conventionnée**
+   - Vérifier que la chambre appartient bien à la convention
+   - Vérifier que les dates sont dans la période de la convention
+
+4. **Port déjà utilisé**
+   ```bash
+   taskkill /f /im node.exe
+   node src/index.js
+   ```
+
+### Logs de debug
+
+Le système inclut des logs de debug pour l'attribution automatique des chambres. Vérifiez la console pour les détails.
+
+## 📞 Support
+
+Pour toute question ou problème :
+1. Vérifiez les logs de la console
+2. Consultez la documentation des tests
+3. Vérifiez la configuration de la base de données
+
+---
+
+**Version :** 1.0.0  
+**Dernière mise à jour :** 2025

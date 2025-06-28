@@ -43,11 +43,11 @@ const validateCreateConvention = [
     .isISO8601()
     .withMessage('Format de date invalide'),
   
-  body('dateFin')
+  body('nombreJours')
     .notEmpty()
-    .withMessage('La date de fin est requise')
-    .isISO8601()
-    .withMessage('Format de date invalide'),
+    .withMessage('Le nombre de jours est requis')
+    .isInt({ min: 1, max: 365 })
+    .withMessage('Le nombre de jours doit être entre 1 et 365'),
   
   body('prixConvention')
     .notEmpty()
@@ -55,7 +55,6 @@ const validateCreateConvention = [
     .isFloat({ min: 0 })
     .withMessage('Le prix doit être un nombre positif'),
   
-  // Validation des chambres par type
   body('chambresStandard')
     .optional()
     .isInt({ min: 0, max: 50 })
@@ -145,17 +144,16 @@ const validateUpdateConvention = [
     .isISO8601()
     .withMessage('Format de date invalide'),
   
-  body('dateFin')
+  body('nombreJours')
     .optional()
-    .isISO8601()
-    .withMessage('Format de date invalide'),
+    .isInt({ min: 1, max: 365 })
+    .withMessage('Le nombre de jours doit être entre 1 et 365'),
   
   body('prixConvention')
     .optional()
     .isFloat({ min: 0 })
     .withMessage('Le prix doit être un nombre positif'),
   
-  // Validation des chambres par type
   body('chambresStandard')
     .optional()
     .isInt({ min: 0, max: 50 })
@@ -252,7 +250,17 @@ const validateQueryParams = [
 // Validation pour les paramètres d'ID
 const validateId = [
   param('id')
-    .isUUID()
+    .custom((value) => {
+      // Accepter soit un UUID soit un nombre
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const isUUID = uuidRegex.test(value);
+      const isNumber = !isNaN(value) && parseInt(value) > 0;
+      
+      if (!isUUID && !isNumber) {
+        throw new Error('ID invalide - doit être un UUID ou un nombre positif');
+      }
+      return true;
+    })
     .withMessage('ID invalide'),
   
   handleValidationErrors

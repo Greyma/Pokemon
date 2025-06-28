@@ -109,6 +109,11 @@ const Reservation = sequelize.define('Reservation', {
   receptionniste: {
     type: DataTypes.STRING,
     allowNull: false
+  },
+  conventionId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    comment: 'ID de la convention si cette réservation est liée à une convention'
   }
 }, {
   timestamps: true,

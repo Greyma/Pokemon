@@ -8,10 +8,7 @@ const {
   validateUpdateConvention, 
   validateQueryParams, 
   validateId, 
-  validateSearchBySociete,
-  validateVerificationDisponibilite,
-  validateRechercheDatesDisponibles,
-  validateRechercheDatesDisponiblesParNombreTotal
+  validateSearchBySociete
 } = require('../middleware/validation');
 
 // Middleware pour vérifier les permissions
@@ -57,30 +54,6 @@ router.post('/',
   ConventionController.createConvention
 );
 
-// POST /api/conventions/verifier-disponibilite - Vérifier la disponibilité des chambres (Manager uniquement)
-router.post('/verifier-disponibilite', 
-  authenticateToken, 
-  requireManager, 
-  validateVerificationDisponibilite,
-  ConventionController.verifierDisponibiliteChambres
-);
-
-// POST /api/conventions/rechercher-dates-disponibles - Rechercher toutes les dates disponibles (Manager uniquement)
-router.post('/rechercher-dates-disponibles', 
-  authenticateToken, 
-  requireManager, 
-  validateRechercheDatesDisponibles,
-  ConventionController.rechercherDatesDisponibles
-);
-
-// POST /api/conventions/rechercher-dates-disponibles-par-nombre-total - Rechercher par nombre total de chambres (Manager uniquement)
-router.post('/rechercher-dates-disponibles-par-nombre-total', 
-  authenticateToken, 
-  requireManager, 
-  validateRechercheDatesDisponiblesParNombreTotal,
-  ConventionController.rechercherDatesDisponiblesParNombreTotal
-);
-
 // Configuration de express-file-upload pour les justificatifs
 router.use('/:id/upload-justificatif', conventionFileUpload);
 
@@ -107,31 +80,6 @@ router.delete('/:id',
   requireManager, 
   validateId,
   ConventionController.deleteConvention
-);
-
-// Routes pour les réservations automatiques
-// POST /api/conventions/:id/creer-reservations - Créer des réservations automatiques (Manager uniquement)
-router.post('/:id/creer-reservations', 
-  authenticateToken, 
-  requireManager, 
-  validateId,
-  ConventionController.creerReservationsAutomatiques
-);
-
-// DELETE /api/conventions/:id/annuler-reservations - Annuler les réservations automatiques (Manager uniquement)
-router.delete('/:id/annuler-reservations', 
-  authenticateToken, 
-  requireManager, 
-  validateId,
-  ConventionController.annulerReservationsAutomatiques
-);
-
-// GET /api/conventions/:id/statut-reservations - Obtenir le statut des réservations (Manager et Réceptionniste)
-router.get('/:id/statut-reservations', 
-  authenticateToken, 
-  requireManagerOrReceptionist, 
-  validateId,
-  ConventionController.getStatutReservations
 );
 
 // Routes pour les fichiers

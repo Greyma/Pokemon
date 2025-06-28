@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
+const { jwtSecret, jwtExpiration } = require('../config/database');
 
 // Login
 router.post('/login', async (req, res) => {
@@ -26,8 +27,8 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRATION }
+      jwtSecret,
+      { expiresIn: jwtExpiration }
     );
 
     user.lastLogin = new Date();

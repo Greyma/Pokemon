@@ -37,6 +37,14 @@ const Convention = sequelize.define('Convention', {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
+  nombreJours: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: {
+      min: 1,
+      max: 365
+    }
+  },
   prixConvention: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
@@ -44,7 +52,7 @@ const Convention = sequelize.define('Convention', {
       min: 0
     }
   },
-  // Configuration des chambres par type
+  // Configuration des chambres par type pour sélection automatique
   chambresStandard: {
     type: DataTypes.INTEGER,
     allowNull: false,
