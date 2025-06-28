@@ -9,6 +9,7 @@ router.use(authenticateToken);
 // Routes accessibles à tous les utilisateurs authentifiés
 router.get('/available-rooms', reservationController.getAvailableRooms);
 router.get('/rooms', reservationController.getAvailableRooms);
+router.get('/available-activities', reservationController.getAvailableActivities);
 router.get('/convention/:conventionId/reservations', reservationController.getConventionReservations);
 router.get('/room/:roomId/reservations', reservationController.getRoomReservations);
 router.get('/:id', reservationController.getReservationById);

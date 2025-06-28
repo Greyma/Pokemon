@@ -638,12 +638,16 @@ describe('Test de tarification', () => {
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(20000);
     expect(response.data.data.priceDetails).toEqual({
-      basePrice: 20000,
+      basePrice: 10000,
       extraPersonPrice: 2000,
       nights: 2,
       capacity: 2,
       extraAdults: 0,
       extraPrice: 0,
+      basePriceTotal: 20000,
+      roomPrice: 20000,
+      prixActivites: 0,
+      activites: [],
       conventionInfo: null,
       isConventionMember: false
     });
@@ -660,12 +664,16 @@ describe('Test de tarification', () => {
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(24000);
     expect(response.data.data.priceDetails).toEqual({
-      basePrice: 20000,
+      basePrice: 10000,
       extraPersonPrice: 2000,
       nights: 2,
       capacity: 2,
       extraAdults: 1,
       extraPrice: 4000,
+      basePriceTotal: 20000,
+      roomPrice: 24000,
+      prixActivites: 0,
+      activites: [],
       conventionInfo: null,
       isConventionMember: false
     });
@@ -682,12 +690,16 @@ describe('Test de tarification', () => {
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(80000);
     expect(response.data.data.priceDetails).toEqual({
-      basePrice: 80000,
+      basePrice: 20000,
       extraPersonPrice: 3000,
       nights: 4,
       capacity: 4,
       extraAdults: 0,
       extraPrice: 0,
+      basePriceTotal: 80000,
+      roomPrice: 80000,
+      prixActivites: 0,
+      activites: [],
       conventionInfo: null,
       isConventionMember: false
     });
@@ -704,12 +716,16 @@ describe('Test de tarification', () => {
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(104000);
     expect(response.data.data.priceDetails).toEqual({
-      basePrice: 80000,
+      basePrice: 20000,
       extraPersonPrice: 3000,
       nights: 4,
       capacity: 4,
       extraAdults: 2,
       extraPrice: 24000,
+      basePriceTotal: 80000,
+      roomPrice: 104000,
+      prixActivites: 0,
+      activites: [],
       conventionInfo: null,
       isConventionMember: false
     });
@@ -726,12 +742,16 @@ describe('Test de tarification', () => {
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(90000);
     expect(response.data.data.priceDetails).toEqual({
-      basePrice: 90000,
+      basePrice: 30000,
       extraPersonPrice: 4000,
       nights: 3,
       capacity: 6,
       extraAdults: 0,
       extraPrice: 0,
+      basePriceTotal: 90000,
+      roomPrice: 90000,
+      prixActivites: 0,
+      activites: [],
       conventionInfo: null,
       isConventionMember: false
     });
@@ -748,12 +768,16 @@ describe('Test de tarification', () => {
     expect(response.status).toBe(200);
     expect(response.data.data.totalPrice).toBe(114000);
     expect(response.data.data.priceDetails).toEqual({
-      basePrice: 90000,
+      basePrice: 30000,
       extraPersonPrice: 4000,
       nights: 3,
       capacity: 6,
       extraAdults: 2,
       extraPrice: 24000,
+      basePriceTotal: 90000,
+      roomPrice: 114000,
+      prixActivites: 0,
+      activites: [],
       conventionInfo: null,
       isConventionMember: false
     });
@@ -1502,6 +1526,10 @@ describe('Tests de réservation pour particuliers et conventionnés', () => {
   test('Réservation pour un conventionné (gratuit)', async () => {
     setAuthToken(receptionistToken);
 
+    // Utiliser une chambre réellement associée à la convention
+    const conventionDetails = await api.get(`/conventions/${conventionId}`);
+    const associatedRoom = conventionDetails.data.data.rooms[0]; // Première chambre de la convention
+
     const reservation = {
       reservationId: "RES-CONV-001",
       nomClient: "Ahmed Benali",
@@ -1511,9 +1539,9 @@ describe('Tests de réservation pour particuliers et conventionnés', () => {
       dateEntree: "2025-09-01",
       dateSortie: "2025-09-03",
       nombrePersonnes: 2,
-      chambreId: standardRoomId.toString(), // Convertir en chaîne
-      numeroChambre: 9998,
-      typeChambre: "STANDARD",
+      chambreId: associatedRoom.id.toString(), // Utiliser l'ID de la chambre associée
+      numeroChambre: associatedRoom.number,
+      typeChambre: associatedRoom.type,
       montantTotal: 0, // Gratuit pour les conventionnés
       conventionId: conventionId, // ID de la convention
       paiements: [], // Pas de paiement
@@ -1611,8 +1639,12 @@ describe('Tests de réservation pour particuliers et conventionnés', () => {
   test('Calcul de prix pour conventionné (gratuit)', async () => {
     setAuthToken(receptionistToken);
 
+    // Utiliser une chambre réellement associée à la convention
+    const conventionDetails = await api.get(`/conventions/${conventionId}`);
+    const associatedRoom = conventionDetails.data.data.rooms[0]; // Première chambre de la convention
+
     const response = await api.post('/reservations/calculate-price', {
-      roomId: standardRoomId.toString(), // Convertir en chaîne
+      roomId: associatedRoom.id.toString(), // Utiliser l'ID de la chambre associée
       numberOfAdults: 2,
       numberOfChildren: 0,
       checkInDate: '2025-09-01',
@@ -1719,5 +1751,787 @@ describe('Tests de réservation pour particuliers et conventionnés', () => {
       expect(error.response.status).toBe(400);
       expect(error.response.data.message).toContain('n\'appartient pas à la convention');
     }
+  });
+});
+
+// Tests du CRUD des activités
+describe('Tests du CRUD des activités', () => {
+  let activityId;
+  let managerToken;
+  let receptionistToken;
+
+  // Authentification avant les tests
+  beforeAll(async () => {
+    // Connexion du manager
+    const managerResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
+    });
+    managerToken = managerResponse.data.data.token;
+
+    // Connexion du réceptionniste
+    const receptionistResponse = await api.post('/auth/login', {
+      username: 'receptionist1',
+      password: 'reception123'
+    });
+    receptionistToken = receptionistResponse.data.data.token;
+  });
+
+  test('Création d\'une nouvelle activité (Manager)', async () => {
+    setAuthToken(managerToken);
+
+    const activity = {
+      nomActivite: 'Test Activité',
+      prix: 2000,
+      description: 'Description de test pour l\'activité'
+    };
+
+    const response = await api.post('/activities', activity);
+    expect(response.status).toBe(201);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('id');
+    expect(response.data.data.nomActivite).toBe(activity.nomActivite);
+    expect(response.data.data.prix).toBe(activity.prix);
+    
+    activityId = response.data.data.id;
+  });
+
+  test('Tentative de création d\'activité par un réceptionniste (interdite)', async () => {
+    setAuthToken(receptionistToken);
+
+    const activity = {
+      nomActivite: 'Test Activité Réceptionniste',
+      prix: 1500
+    };
+
+    try {
+      await api.post('/activities', activity);
+    } catch (error) {
+      expect(error.response.status).toBe(403);
+    }
+  });
+
+  test('Récupération de toutes les activités (Manager)', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.get('/activities');
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data).toHaveProperty('data');
+    expect(Array.isArray(response.data.data)).toBe(true);
+    expect(response.data).toHaveProperty('pagination');
+  });
+
+  test('Récupération de toutes les activités (Réceptionniste)', async () => {
+    setAuthToken(receptionistToken);
+
+    const response = await api.get('/activities');
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data).toHaveProperty('data');
+    expect(Array.isArray(response.data.data)).toBe(true);
+  });
+
+  test('Récupération d\'une activité spécifique', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.get(`/activities/${activityId}`);
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('id', activityId);
+    expect(response.data.data).toHaveProperty('nomActivite');
+    expect(response.data.data).toHaveProperty('prix');
+  });
+
+  test('Modification d\'une activité (Manager)', async () => {
+    setAuthToken(managerToken);
+
+    const updateData = {
+      nomActivite: 'Test Activité Modifiée',
+      prix: 2500,
+      description: 'Description modifiée'
+    };
+
+    const response = await api.put(`/activities/${activityId}`, updateData);
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data.nomActivite).toBe(updateData.nomActivite);
+    expect(response.data.data.prix).toBe(updateData.prix);
+  });
+
+  test('Tentative de modification par un réceptionniste (interdite)', async () => {
+    setAuthToken(receptionistToken);
+
+    const updateData = {
+      nomActivite: 'Test Modification Réceptionniste',
+      prix: 1800
+    };
+
+    try {
+      await api.put(`/activities/${activityId}`, updateData);
+    } catch (error) {
+      expect(error.response.status).toBe(403);
+    }
+  });
+
+  test('Activation/Désactivation d\'une activité', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.patch(`/activities/${activityId}/toggle-status`);
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('isActive');
+  });
+
+  test('Recherche d\'activités', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.get('/activities/search?search=Test');
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data).toHaveProperty('data');
+    expect(Array.isArray(response.data.data)).toBe(true);
+  });
+
+  test('Récupération des activités actives', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.get('/activities/active/list');
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data).toHaveProperty('data');
+    expect(Array.isArray(response.data.data)).toBe(true);
+    
+    // Vérifier que toutes les activités retournées sont actives
+    response.data.data.forEach(activity => {
+      expect(activity.isActive).toBe(true);
+    });
+  });
+
+  test('Tentative de création d\'activité avec nom dupliqué', async () => {
+    setAuthToken(managerToken);
+
+    const activity = {
+      nomActivite: 'Test Activité Modifiée', // Nom déjà utilisé
+      prix: 3000
+    };
+
+    try {
+      await api.post('/activities', activity);
+    } catch (error) {
+      expect(error.response.status).toBe(409);
+      expect(error.response.data.message).toContain('existe déjà');
+    }
+  });
+
+  test('Tentative de création d\'activité avec prix négatif', async () => {
+    setAuthToken(managerToken);
+
+    const activity = {
+      nomActivite: 'Test Prix Négatif',
+      prix: -100
+    };
+
+    try {
+      await api.post('/activities', activity);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toContain('positif');
+    }
+  });
+
+  test('Tentative de création d\'activité avec données manquantes', async () => {
+    setAuthToken(managerToken);
+
+    const activity = {
+      nomActivite: 'Test Incomplet'
+      // Prix manquant
+    };
+
+    try {
+      await api.post('/activities', activity);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toContain('requis');
+    }
+  });
+
+  test('Suppression d\'une activité (Manager)', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.delete(`/activities/${activityId}`);
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.message).toContain('supprimée');
+  });
+
+  test('Tentative de suppression par un réceptionniste (interdite)', async () => {
+    setAuthToken(receptionistToken);
+
+    try {
+      await api.delete(`/activities/${activityId}`);
+    } catch (error) {
+      expect(error.response.status).toBe(403);
+    }
+  });
+
+  test('Tentative d\'accès à une activité inexistante', async () => {
+    setAuthToken(managerToken);
+
+    try {
+      await api.get('/activities/non-existent-id');
+    } catch (error) {
+      expect(error.response.status).toBe(404);
+      expect(error.response.data.message).toContain('trouvée');
+    }
+  });
+});
+
+// Tests pour les activités dans les réservations
+describe('Tests des activités dans les réservations', () => {
+  let managerToken, receptionistToken, activityId, roomId;
+
+  beforeAll(async () => {
+    // Authentification
+    const managerResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
+    });
+    managerToken = managerResponse.data.data.token;
+
+    const receptionistResponse = await api.post('/auth/login', {
+      username: 'receptionist1',
+      password: 'reception123'
+    });
+    receptionistToken = receptionistResponse.data.data.token;
+
+    // Créer une activité de test
+    setAuthToken(managerToken);
+    const activity = {
+      nomActivite: 'Test Activité Réservation',
+      prix: 2000,
+      description: 'Activité de test pour les réservations'
+    };
+    const activityResponse = await api.post('/activities', activity);
+    activityId = activityResponse.data.data.id;
+
+    // Créer une chambre de test
+    const room = {
+      number: '99999',
+      type: 'STANDARD',
+      capacity: 2,
+      basePrice: 100,
+      extraPersonPrice: 50,
+      status: 'LIBRE',
+      description: 'Chambre de test',
+      isActive: true
+    };
+    const roomResponse = await api.post('/rooms', room);
+    roomId = roomResponse.data.data.id;
+  });
+
+  test('Récupération des activités disponibles', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.get('/reservations/available-activities');
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(Array.isArray(response.data.data)).toBe(true);
+    expect(response.data.data.length).toBeGreaterThan(0);
+    
+    const activity = response.data.data[0];
+    expect(activity).toHaveProperty('id');
+    expect(activity).toHaveProperty('nomActivite');
+    expect(activity).toHaveProperty('prix');
+    expect(activity).toHaveProperty('description');
+  });
+
+  test('Calcul de prix avec activités', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.post('/reservations/calculate-price', {
+      checkInDate: '2025-01-15',
+      checkOutDate: '2025-01-17',
+      roomId: roomId,
+      numberOfAdults: 2,
+      activites: [
+        { id: activityId, nomActivite: 'Test Activité Réservation', prix: 2000 }
+      ]
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('totalPrice');
+    expect(response.data.data.priceDetails).toHaveProperty('prixActivites');
+    expect(response.data.data.priceDetails.prixActivites).toBe(2000);
+    expect(response.data.data.priceDetails).toHaveProperty('activites');
+    expect(response.data.data.priceDetails.activites).toHaveLength(1);
+  });
+
+  test('Calcul de prix pour conventionné avec activités', async () => {
+    setAuthToken(managerToken);
+
+    // Créer une convention de test
+    const convention = {
+      numeroConvention: 'CONV-ACT-TEST-001',
+      nomSociete: 'Société Test Activités',
+      contactPrincipal: 'Contact Test',
+      telephone: '0123456789',
+      email: 'test@convention.com',
+      dateDebut: '2025-01-10',
+      nombreJours: 10,
+      prixConvention: 0,
+      chambresStandard: 1,
+      chambresVIP: 0,
+      chambresSuite: 0,
+      nombreAdultesMaxParChambre: 2,
+      conditionsSpeciales: 'Activités incluses',
+      description: 'Convention avec activités incluses'
+    };
+    const conventionResponse = await api.post('/conventions', convention);
+    const conventionId = conventionResponse.data.data.id;
+
+    // Récupérer les chambres associées à la convention
+    const conventionDetails = await api.get(`/conventions/${conventionId}`);
+    const associatedRoom = conventionDetails.data.data.rooms[0];
+
+    const response = await api.post('/reservations/calculate-price', {
+      checkInDate: '2025-01-15',
+      checkOutDate: '2025-01-17',
+      roomId: associatedRoom.id,
+      numberOfAdults: 2,
+      conventionId: conventionId,
+      activites: [
+        { id: activityId, nomActivite: 'Test Activité Réservation', prix: 2000 }
+      ]
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('totalPrice');
+    expect(response.data.data.priceDetails).toHaveProperty('prixActivites');
+    expect(response.data.data.priceDetails.prixActivites).toBe(2000);
+    expect(response.data.data.priceDetails).toHaveProperty('activites');
+    expect(response.data.data.priceDetails.activites).toHaveLength(1);
+    expect(response.data.data.priceDetails).toHaveProperty('roomPrice');
+    expect(response.data.data.priceDetails.roomPrice).toBe(0); // Gratuit pour conventionné
+    expect(response.data.data.totalPrice).toBe(2000); // Seulement le prix des activités
+  });
+
+  test('Création de réservation avec activités', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.post('/reservations', {
+      reservationId: 'RES-ACT-001',
+      nomClient: 'Jean Dupont',
+      email: 'jean.dupont@email.com',
+      telephone: '0123456789',
+      adresse: '123 Rue de la Paix, Paris',
+      dateEntree: '2025-01-20',
+      dateSortie: '2025-01-22',
+      nombrePersonnes: 2,
+      chambreId: roomId,
+      numeroChambre: '99999',
+      typeChambre: 'STANDARD',
+      montantTotal: 200, // Prix de la chambre
+      receptionnisteId: '1',
+      receptionniste: 'Manager Test',
+      activites: [
+        { id: activityId, nomActivite: 'Test Activité Réservation', prix: 2000 }
+      ]
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('activites');
+    expect(response.data.data.activites).toHaveLength(1);
+    expect(response.data.data.montantTotal).toBe(2200); // 200 + 2000
+  });
+
+  test('Création de réservation conventionnée avec activités', async () => {
+    setAuthToken(managerToken);
+
+    // Créer une convention de test
+    const convention = {
+      numeroConvention: 'CONV-ACT-TEST-002',
+      nomSociete: 'Société Test Activités 2',
+      contactPrincipal: 'Contact Test 2',
+      telephone: '0987654321',
+      email: 'test2@convention.com',
+      dateDebut: '2025-01-15',
+      nombreJours: 10,
+      prixConvention: 0,
+      chambresStandard: 1,
+      chambresVIP: 0,
+      chambresSuite: 0,
+      nombreAdultesMaxParChambre: 2,
+      conditionsSpeciales: 'Activités incluses',
+      description: 'Convention avec activités incluses'
+    };
+    const conventionResponse = await api.post('/conventions', convention);
+    const conventionId = conventionResponse.data.data.id;
+
+    // Récupérer les chambres associées à la convention
+    const conventionDetails = await api.get(`/conventions/${conventionId}`);
+    const associatedRoom = conventionDetails.data.data.rooms[0];
+
+    const response = await api.post('/reservations', {
+      reservationId: 'RES-CONV-ACT-001',
+      nomClient: 'Marie Martin',
+      email: 'marie.martin@email.com',
+      telephone: '0987654321',
+      adresse: '456 Avenue des Champs, Lyon',
+      dateEntree: '2025-01-18',
+      dateSortie: '2025-01-20',
+      nombrePersonnes: 2,
+      chambreId: associatedRoom.id,
+      numeroChambre: associatedRoom.number,
+      typeChambre: associatedRoom.type,
+      montantTotal: 0,
+      receptionnisteId: '1',
+      receptionniste: 'Manager Test',
+      conventionId: conventionId,
+      activites: [
+        { id: activityId, nomActivite: 'Test Activité Réservation', prix: 2000 }
+      ]
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('activites');
+    expect(response.data.data.activites).toHaveLength(1);
+    expect(response.data.data.montantTotal).toBe(2000); // Seulement le prix des activités
+    expect(response.data.data.conventionId).toBe(conventionId);
+  });
+
+  test('Tentative de création avec activité inexistante', async () => {
+    setAuthToken(managerToken);
+
+    try {
+      await api.post('/reservations', {
+        reservationId: 'RES-ACT-ERROR-001',
+        nomClient: 'Test Client',
+        email: 'test@email.com',
+        telephone: '0123456789',
+        adresse: 'Test Address',
+        dateEntree: '2025-01-20',
+        dateSortie: '2025-01-22',
+        nombrePersonnes: 2,
+        chambreId: roomId,
+        numeroChambre: '99999',
+        typeChambre: 'STANDARD',
+        montantTotal: 200,
+        receptionnisteId: '1',
+        receptionniste: 'Manager Test',
+        activites: [
+          { id: 99999, nomActivite: 'Activité Inexistante', prix: 1000 }
+        ]
+      });
+    } catch (error) {
+      expect(error.response.status).toBe(404);
+      expect(error.response.data.message).toContain('non trouvée');
+    }
+  });
+
+  test('Tentative de création avec activité inactive', async () => {
+    setAuthToken(managerToken);
+
+    // Désactiver l'activité
+    await api.patch(`/activities/${activityId}/toggle-status`);
+
+    try {
+      await api.post('/reservations', {
+        reservationId: 'RES-ACT-INACTIVE-001',
+        nomClient: 'Test Client',
+        email: 'test@email.com',
+        telephone: '0123456789',
+        adresse: 'Test Address',
+        dateEntree: '2025-01-20',
+        dateSortie: '2025-01-22',
+        nombrePersonnes: 2,
+        chambreId: roomId,
+        numeroChambre: '99999',
+        typeChambre: 'STANDARD',
+        montantTotal: 200,
+        receptionnisteId: '1',
+        receptionniste: 'Manager Test',
+        activites: [
+          { id: activityId, nomActivite: 'Test Activité Réservation', prix: 2000 }
+        ]
+      });
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toContain('n\'est pas active');
+    }
+
+    // Réactiver l'activité pour les autres tests
+    await api.patch(`/activities/${activityId}/toggle-status`);
+  });
+}); 
+
+// Tests pour les activités incluses dans les conventions
+describe('Tests des activités incluses dans les conventions', () => {
+  let managerToken, activityId1, activityId2, roomId, conventionId;
+
+  beforeAll(async () => {
+    // Authentification
+    const managerResponse = await api.post('/auth/login', {
+      username: 'manager1',
+      password: 'manager123'
+    });
+    managerToken = managerResponse.data.data.token;
+
+    // Créer des activités de test
+    setAuthToken(managerToken);
+    const activity1 = {
+      nomActivite: 'Test Activité Incluse',
+      prix: 2000,
+      description: 'Activité incluse dans la convention'
+    };
+    const activityResponse1 = await api.post('/activities', activity1);
+    activityId1 = activityResponse1.data.data.id;
+
+    const activity2 = {
+      nomActivite: 'Test Activité Payante',
+      prix: 3000,
+      description: 'Activité payante pour conventionnés'
+    };
+    const activityResponse2 = await api.post('/activities', activity2);
+    activityId2 = activityResponse2.data.data.id;
+
+    // Créer une chambre de test
+    const room = {
+      number: '88888',
+      type: 'STANDARD',
+      capacity: 2,
+      basePrice: 100,
+      extraPersonPrice: 50,
+      status: 'LIBRE',
+      description: 'Chambre de test pour activités incluses',
+      isActive: true
+    };
+    const roomResponse = await api.post('/rooms', room);
+    roomId = roomResponse.data.data.id;
+  });
+
+  test('Créer une convention avec activités incluses', async () => {
+    setAuthToken(managerToken);
+
+    const convention = {
+      numeroConvention: 'CONV-ACTIVITES-001',
+      nomSociete: 'Société Test Activités Incluses',
+      contactPrincipal: 'Contact Test',
+      telephone: '0123456789',
+      email: 'test@convention-activites.com',
+      dateDebut: '2025-01-10',
+      dateFin: '2025-01-20',
+      nombreJours: 10,
+      prixConvention: 0,
+      chambresStandard: 1,
+      chambresVIP: 0,
+      chambresSuite: 0,
+      nombreAdultesMaxParChambre: 2,
+      conditionsSpeciales: 'Activités incluses',
+      description: 'Convention avec activités incluses',
+      activitesIncluses: [activityId1] // Inclure seulement la première activité
+    };
+
+    const response = await api.post('/conventions', convention);
+    expect(response.status).toBe(201);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('activitesIncluses');
+    expect(response.data.data.activitesIncluses).toHaveLength(1);
+    expect(response.data.data.activitesIncluses[0].id).toBe(activityId1);
+    
+    conventionId = response.data.data.id;
+  });
+
+  test('Récupérer les activités incluses d\'une convention', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.get(`/conventions/${conventionId}/activities`);
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('convention');
+    expect(response.data.data).toHaveProperty('activitesIncluses');
+    expect(response.data.data.activitesIncluses).toHaveLength(1);
+    expect(response.data.data.activitesIncluses[0].id).toBe(activityId1);
+  });
+
+  test('Calcul de prix pour conventionné avec activités incluses et payantes', async () => {
+    setAuthToken(managerToken);
+
+    // Récupérer les chambres associées à la convention
+    const conventionDetails = await api.get(`/conventions/${conventionId}`);
+    const associatedRoom = conventionDetails.data.data.rooms[0];
+
+    const response = await api.post('/reservations/calculate-price', {
+      checkInDate: '2025-01-15',
+      checkOutDate: '2025-01-17',
+      roomId: associatedRoom.id,
+      numberOfAdults: 2,
+      conventionId: conventionId,
+      activites: [
+        { id: activityId1, nomActivite: 'Test Activité Incluse', prix: 2000 }, // Incluse
+        { id: activityId2, nomActivite: 'Test Activité Payante', prix: 3000 }  // Payante
+      ]
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('totalPrice');
+    expect(response.data.data.priceDetails).toHaveProperty('prixActivites');
+    expect(response.data.data.priceDetails.prixActivites).toBe(3000); // Seulement l'activité payante
+    expect(response.data.data.priceDetails).toHaveProperty('activites');
+    expect(response.data.data.priceDetails.activites).toHaveLength(2);
+    
+    // Vérifier que l'activité incluse est marquée comme incluse
+    const activiteIncluse = response.data.data.priceDetails.activites.find(act => act.id === activityId1);
+    expect(activiteIncluse.incluse).toBe(true);
+    
+    // Vérifier que l'activité payante n'est pas marquée comme incluse
+    const activitePayante = response.data.data.priceDetails.activites.find(act => act.id === activityId2);
+    expect(activitePayante.incluse).toBe(false);
+  });
+
+  test('Création de réservation conventionnée avec activités incluses et payantes', async () => {
+    setAuthToken(managerToken);
+
+    // Récupérer les chambres associées à la convention
+    const conventionDetails = await api.get(`/conventions/${conventionId}`);
+    const associatedRoom = conventionDetails.data.data.rooms[0];
+
+    const response = await api.post('/reservations', {
+      reservationId: 'RES-CONV-ACT-INCL-001',
+      nomClient: 'Ahmed Benali',
+      email: 'ahmed.benali@societe-test.dz',
+      telephone: '0987654321',
+      adresse: '123 Avenue de la Liberté, Constantine',
+      dateEntree: '2025-01-15',
+      dateSortie: '2025-01-17',
+      nombrePersonnes: 2,
+      chambreId: associatedRoom.id,
+      numeroChambre: associatedRoom.number,
+      typeChambre: associatedRoom.type,
+      montantTotal: 0,
+      receptionnisteId: '1',
+      receptionniste: 'Manager Test',
+      conventionId: conventionId,
+      activites: [
+        { id: activityId1, nomActivite: 'Test Activité Incluse', prix: 2000 }, // Incluse
+        { id: activityId2, nomActivite: 'Test Activité Payante', prix: 3000 }  // Payante
+      ]
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('activites');
+    expect(response.data.data.activites).toHaveLength(2);
+    expect(response.data.data.montantTotal).toBe(3000); // Seulement le prix de l'activité payante
+    
+    // Vérifier que les activités sont marquées correctement
+    const activiteIncluse = response.data.data.activites.find(act => act.id === activityId1);
+    expect(activiteIncluse.incluse).toBe(true);
+    
+    const activitePayante = response.data.data.activites.find(act => act.id === activityId2);
+    expect(activitePayante.incluse).toBe(false);
+  });
+
+  test('Modifier une convention pour ajouter des activités incluses', async () => {
+    setAuthToken(managerToken);
+
+    const response = await api.put(`/conventions/${conventionId}`, {
+      activitesIncluses: [activityId1, activityId2] // Ajouter la deuxième activité
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data).toHaveProperty('activitesIncluses');
+    expect(response.data.data.activitesIncluses).toHaveLength(2);
+  });
+
+  test('Calcul de prix après modification des activités incluses', async () => {
+    setAuthToken(managerToken);
+
+    // Récupérer les chambres associées à la convention
+    const conventionDetails = await api.get(`/conventions/${conventionId}`);
+    const associatedRoom = conventionDetails.data.data.rooms[0];
+
+    const response = await api.post('/reservations/calculate-price', {
+      checkInDate: '2025-01-15',
+      checkOutDate: '2025-01-17',
+      roomId: associatedRoom.id,
+      numberOfAdults: 2,
+      conventionId: conventionId,
+      activites: [
+        { id: activityId1, nomActivite: 'Test Activité Incluse', prix: 2000 },
+        { id: activityId2, nomActivite: 'Test Activité Payante', prix: 3000 }
+      ]
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data.success).toBe(true);
+    expect(response.data.data.priceDetails.prixActivites).toBe(0); // Les deux activités sont maintenant incluses
+    expect(response.data.data.totalPrice).toBe(0); // Chambre + activités = 0
+  });
+
+  test('Tentative de création de convention avec activité inexistante', async () => {
+    setAuthToken(managerToken);
+
+    const convention = {
+      numeroConvention: 'CONV-ACTIVITES-ERROR-001',
+      nomSociete: 'Société Test Erreur',
+      contactPrincipal: 'Contact Test',
+      telephone: '0123456789',
+      email: 'test@convention-error.com',
+      dateDebut: '2025-01-10',
+      nombreJours: 10,
+      prixConvention: 0,
+      chambresStandard: 1,
+      chambresVIP: 0,
+      chambresSuite: 0,
+      nombreAdultesMaxParChambre: 2,
+      activitesIncluses: [99999] // ID inexistant
+    };
+
+    try {
+      await api.post('/conventions', convention);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toContain('non trouvée');
+    }
+  });
+
+  test('Tentative de création de convention avec activité inactive', async () => {
+    setAuthToken(managerToken);
+
+    // Désactiver l'activité
+    await api.patch(`/activities/${activityId1}/toggle-status`);
+
+    const convention = {
+      numeroConvention: 'CONV-ACTIVITES-INACTIVE-001',
+      nomSociete: 'Société Test Inactive',
+      contactPrincipal: 'Contact Test',
+      telephone: '0123456789',
+      email: 'test@convention-inactive.com',
+      dateDebut: '2025-01-10',
+      nombreJours: 10,
+      prixConvention: 0,
+      chambresStandard: 1,
+      chambresVIP: 0,
+      chambresSuite: 0,
+      nombreAdultesMaxParChambre: 2,
+      activitesIncluses: [activityId1] // Activité désactivée
+    };
+
+    try {
+      await api.post('/conventions', convention);
+    } catch (error) {
+      expect(error.response.status).toBe(400);
+      expect(error.response.data.message).toContain('n\'est pas active');
+    }
+
+    // Réactiver l'activité pour les autres tests
+    await api.patch(`/activities/${activityId1}/toggle-status`);
   });
 }); 

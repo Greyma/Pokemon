@@ -114,6 +114,19 @@ const Reservation = sequelize.define('Reservation', {
     type: DataTypes.UUID,
     allowNull: true,
     comment: 'ID de la convention si cette réservation est liée à une convention'
+  },
+  activites: {
+    type: DataTypes.JSON,
+    allowNull: false,
+    defaultValue: [],
+    comment: 'Liste des activités sélectionnées avec leurs prix',
+    get() {
+      const rawValue = this.getDataValue('activites');
+      return rawValue ? JSON.parse(JSON.stringify(rawValue)) : [];
+    },
+    set(value) {
+      this.setDataValue('activites', value);
+    }
   }
 }, {
   timestamps: true,

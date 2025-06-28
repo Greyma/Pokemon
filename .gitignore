@@ -7,9 +7,9 @@ package-lock.json
 yarn.lock
 
 # Environnement
-# .env
-# .env.local
-# .env.*.local
+.env
+.env.local
+.env.*.local
 
 # Base de données
 *.sqlite

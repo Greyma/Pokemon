@@ -90,6 +90,13 @@ class ConventionController {
         });
       }
 
+      if (error.message.includes('non trouvée') || error.message.includes('n\'est pas active')) {
+        return res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      }
+
       res.status(500).json({
         success: false,
         message: 'Erreur lors de la création de la convention',
@@ -277,6 +284,38 @@ class ConventionController {
       res.status(500).json({
         success: false,
         message: 'Erreur lors de la récupération des conventions actives'
+      });
+    }
+  }
+
+  // Obtenir les activités incluses dans une convention
+  static async getConventionActivities(req, res) {
+    try {
+      const convention = await ConventionService.getConventionById(req.params.id);
+
+      if (!convention) {
+        return res.status(404).json({
+          success: false,
+          message: 'Convention non trouvée'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          convention: {
+            id: convention.id,
+            numeroConvention: convention.numeroConvention,
+            nomSociete: convention.nomSociete
+          },
+          activitesIncluses: convention.activitesIncluses || []
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération des activités de la convention:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la récupération des activités de la convention'
       });
     }
   }

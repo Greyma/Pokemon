@@ -100,4 +100,11 @@ router.get('/:id/download-justificatif',
   ConventionController.downloadJustificatif
 );
 
+// Récupérer les activités incluses dans une convention
+router.get('/:id/activities', 
+  authenticateToken, 
+  hasRole(['MANAGER', 'RECEPTIONIST']), 
+  ConventionController.getConventionActivities
+);
+
 module.exports = router; 

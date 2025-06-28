@@ -25,7 +25,8 @@ exports.createReservation = async (req, res) => {
       remarques,
       receptionnisteId,
       receptionniste,
-      conventionId
+      conventionId,
+      activites
     } = req.body;
 
     // Vérifier les données requises
@@ -54,6 +55,69 @@ exports.createReservation = async (req, res) => {
         success: false,
         message: 'Chambre non trouvée'
       });
+    }
+
+    // Valider et calculer le prix des activités
+    let activitesFinal = [];
+    let prixActivites = 0;
+    
+    if (activites && Array.isArray(activites) && activites.length > 0) {
+      const { Activity } = require('../models');
+      
+      for (const activite of activites) {
+        if (!activite.id || !activite.nomActivite || activite.prix === undefined) {
+          return res.status(400).json({
+            success: false,
+            message: 'Données d\'activité incomplètes'
+          });
+        }
+
+        // Vérifier que l'activité existe et est active
+        const activity = await Activity.findByPk(activite.id);
+        if (!activity) {
+          return res.status(404).json({
+            success: false,
+            message: `Activité avec l'ID ${activite.id} non trouvée`
+          });
+        }
+
+        if (!activity.isActive) {
+          return res.status(400).json({
+            success: false,
+            message: `L'activité "${activity.nomActivite}" n'est pas active`
+          });
+        }
+
+        // Vérifier que le prix correspond
+        if (parseFloat(activite.prix) !== parseFloat(activity.prix)) {
+          return res.status(400).json({
+            success: false,
+            message: `Le prix de l'activité "${activity.nomActivite}" ne correspond pas`
+          });
+        }
+
+        // Vérifier si l'activité est incluse dans la convention
+        let isIncluse = false;
+        if (conventionId) {
+          const convention = await Convention.findByPk(conventionId);
+          if (convention && convention.activitesIncluses) {
+            isIncluse = convention.activitesIncluses.some(act => act.id === activity.id);
+          }
+        }
+
+        activitesFinal.push({
+          id: activity.id,
+          nomActivite: activity.nomActivite,
+          prix: parseFloat(activity.prix),
+          description: activity.description,
+          incluse: isIncluse
+        });
+
+        // Ajouter le prix seulement si l'activité n'est pas incluse dans la convention
+        if (!isIncluse) {
+          prixActivites += parseFloat(activity.prix);
+        }
+      }
     }
 
     let montantTotalFinal = montantTotal;
@@ -100,8 +164,8 @@ exports.createReservation = async (req, res) => {
         });
       }
 
-      // Forcer le prix à 0 et statut à validée
-      montantTotalFinal = 0;
+      // Pour les conventions, le prix de la chambre est gratuit mais les activités restent payantes
+      montantTotalFinal = prixActivites;
       paiementsFinal = [];
       statut = 'validee';
     } else {
@@ -171,9 +235,12 @@ exports.createReservation = async (req, res) => {
         });
       }
 
+      // Ajouter le prix des activités au montant total
+      montantTotalFinal = parseFloat(montantTotal) + prixActivites;
+      
       // Calculer le montant total des paiements
       const totalPaiements = paiements ? paiements.reduce((sum, paiement) => sum + paiement.montant, 0) : 0;
-      statut = totalPaiements >= montantTotal ? 'validee' : 'en_cours';
+      statut = totalPaiements >= montantTotalFinal ? 'validee' : 'en_cours';
     }
 
     // Gérer l'upload du fichier PDF si présent
@@ -235,7 +302,8 @@ exports.createReservation = async (req, res) => {
       dateCreation: new Date(),
       receptionniste,
       preuvePaiement: preuvePaiementPath,
-      conventionId: conventionId || null
+      conventionId: conventionId || null,
+      activites: activitesFinal
     });
 
     // Mettre à jour le statut de la chambre
@@ -257,7 +325,7 @@ exports.createReservation = async (req, res) => {
 // Calculer le prix d'une réservation
 exports.calculatePrice = async (req, res) => {
   try {
-    const { checkInDate, checkOutDate, roomId, numberOfAdults, numberOfChildren = 0, conventionId } = req.body;
+    const { checkInDate, checkOutDate, roomId, numberOfAdults, numberOfChildren = 0, conventionId, activites } = req.body;
 
     // Vérifier les données requises
     if (!checkInDate || !checkOutDate || !numberOfAdults) {
@@ -277,6 +345,60 @@ exports.calculatePrice = async (req, res) => {
       });
     }
 
+    // Calculer le prix des activités
+    let prixActivites = 0;
+    let activitesDetails = [];
+    
+    if (activites && Array.isArray(activites) && activites.length > 0) {
+      const { Activity } = require('../models');
+      
+      for (const activite of activites) {
+        if (!activite.id) {
+          return res.status(400).json({
+            success: false,
+            message: 'ID d\'activité manquant'
+          });
+        }
+
+        const activity = await Activity.findByPk(activite.id);
+        if (!activity) {
+          return res.status(404).json({
+            success: false,
+            message: `Activité avec l'ID ${activite.id} non trouvée`
+          });
+        }
+
+        if (!activity.isActive) {
+          return res.status(400).json({
+            success: false,
+            message: `L'activité "${activity.nomActivite}" n'est pas active`
+          });
+        }
+
+        // Vérifier si l'activité est incluse dans la convention
+        let isIncluse = false;
+        if (conventionId) {
+          const convention = await Convention.findByPk(conventionId);
+          if (convention && convention.activitesIncluses) {
+            isIncluse = convention.activitesIncluses.some(act => act.id === activity.id);
+          }
+        }
+
+        activitesDetails.push({
+          id: activity.id,
+          nomActivite: activity.nomActivite,
+          prix: parseFloat(activity.prix),
+          description: activity.description,
+          incluse: isIncluse
+        });
+
+        // Ajouter le prix seulement si l'activité n'est pas incluse dans la convention
+        if (!isIncluse) {
+          prixActivites += parseFloat(activity.prix);
+        }
+      }
+    }
+
     // Si roomId n'est pas fourni, retourner un prix par défaut
     if (!roomId) {
       const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
@@ -286,7 +408,7 @@ exports.calculatePrice = async (req, res) => {
       const extraAdults = Math.max(0, numberOfAdults - defaultCapacity);
       const basePrice = defaultBasePrice * nights;
       const extraPrice = extraAdults * defaultExtraPersonPrice * nights;
-      const totalPrice = basePrice + extraPrice;
+      const totalPrice = basePrice + extraPrice + prixActivites;
 
       return res.json({
         success: true,
@@ -300,6 +422,8 @@ exports.calculatePrice = async (req, res) => {
             extraAdults,
             basePrice: basePrice,
             extraPrice,
+            prixActivites,
+            activites: activitesDetails,
             isConventionMember: false
           }
         }
@@ -367,8 +491,9 @@ exports.calculatePrice = async (req, res) => {
     const extraAdults = Math.max(0, numberOfAdults - room.capacity);
     const extraPrice = extraAdults * room.extraPersonPrice * nights;
     
-    // Pour les conventionnés, le prix est gratuit
-    const totalPrice = isConventionMember ? 0 : (basePrice + extraPrice);
+    // Pour les conventionnés, le prix de la chambre est gratuit mais les activités restent payantes
+    const roomPrice = isConventionMember ? 0 : (basePrice + extraPrice);
+    const totalPrice = roomPrice + prixActivites;
 
     res.json({
       success: true,
@@ -380,8 +505,11 @@ exports.calculatePrice = async (req, res) => {
           nights,
           capacity: room.capacity,
           extraAdults,
-          basePrice: basePrice,
+          basePriceTotal: basePrice,
           extraPrice,
+          roomPrice,
+          prixActivites,
+          activites: activitesDetails,
           isConventionMember,
           conventionInfo: isConventionMember ? {
             numeroConvention: convention.numeroConvention,
@@ -1231,6 +1359,30 @@ exports.getConventionReservations = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des réservations de la convention'
+    });
+  }
+};
+
+// Obtenir les activités disponibles
+exports.getAvailableActivities = async (req, res) => {
+  try {
+    const { Activity } = require('../models');
+
+    const activities = await Activity.findAll({
+      where: { isActive: true },
+      order: [['nomActivite', 'ASC']],
+      attributes: ['id', 'nomActivite', 'prix', 'description']
+    });
+
+    res.json({
+      success: true,
+      data: activities
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des activités disponibles:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des activités disponibles'
     });
   }
 }; 

@@ -1,5 +1,5 @@
 const {sequelize} = require('./src/config/database');
-const { User, Room, Reservation } = require('./src/models');
+const { User, Room, Reservation, Activity } = require('./src/models');
 
 async function initializeDatabase() {
   try {
@@ -85,6 +85,53 @@ async function initializeDatabase() {
     };
 
     await initializeRooms();
+
+    // Initialiser les activités
+    const initializeActivities = async () => {
+      try {
+        const activities = [
+          {
+            nomActivite: 'Piscine',
+            prix: 1500,
+            description: 'Accès à la piscine avec serviettes incluses',
+            isActive: true
+          },
+          {
+            nomActivite: 'Spa & Massage',
+            prix: 5000,
+            description: 'Séance de spa et massage relaxant',
+            isActive: true
+          },
+          {
+            nomActivite: 'Restaurant Gastronomique',
+            prix: 3000,
+            description: 'Menu gastronomique avec vue panoramique',
+            isActive: true
+          },
+          {
+            nomActivite: 'Salle de Sport',
+            prix: 800,
+            description: 'Accès à la salle de sport équipée',
+            isActive: true
+          },
+          {
+            nomActivite: 'Excursion Guidée',
+            prix: 2500,
+            description: 'Visite guidée des sites touristiques',
+            isActive: true
+          }
+        ];
+
+        for (const activity of activities) {
+          await Activity.create(activity);
+        }
+        console.log('Activités initialisées avec succès');
+      } catch (error) {
+        console.error('Erreur lors de l\'initialisation des activités:', error);
+      }
+    };
+
+    await initializeActivities();
 
     console.log('Initialisation terminée avec succès');
     process.exit(0);

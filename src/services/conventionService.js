@@ -109,6 +109,29 @@ class ConventionService {
       throw new Error('Au moins une chambre doit être configurée pour la convention');
     }
 
+    // Valider les activités incluses si fournies
+    let activitesIncluses = [];
+    if (conventionData.activitesIncluses && Array.isArray(conventionData.activitesIncluses)) {
+      const { Activity } = require('../models');
+      
+      for (const activiteId of conventionData.activitesIncluses) {
+        const activity = await Activity.findByPk(activiteId);
+        if (!activity) {
+          throw new Error(`Activité avec l'ID ${activiteId} non trouvée`);
+        }
+        if (!activity.isActive) {
+          throw new Error(`L'activité "${activity.nomActivite}" n'est pas active`);
+        }
+        
+        activitesIncluses.push({
+          id: activity.id,
+          nomActivite: activity.nomActivite,
+          prix: parseFloat(activity.prix),
+          description: activity.description
+        });
+      }
+    }
+
     // Calculer la date de fin
     const dateDebut = new Date(conventionData.dateDebut);
     const dateFin = new Date(dateDebut);
@@ -118,6 +141,7 @@ class ConventionService {
     const convention = await Convention.create({
       ...conventionData,
       dateFin: dateFin.toISOString().split('T')[0],
+      activitesIncluses,
       createdBy
     });
 
@@ -327,6 +351,32 @@ class ConventionService {
       const dateFin = new Date(dateDebut);
       dateFin.setDate(dateDebut.getDate() + updateData.nombreJours - 1);
       updateData.dateFin = dateFin.toISOString().split('T')[0];
+    }
+
+    // Valider les activités incluses si fournies
+    if (updateData.activitesIncluses !== undefined) {
+      let activitesIncluses = [];
+      if (Array.isArray(updateData.activitesIncluses) && updateData.activitesIncluses.length > 0) {
+        const { Activity } = require('../models');
+        
+        for (const activiteId of updateData.activitesIncluses) {
+          const activity = await Activity.findByPk(activiteId);
+          if (!activity) {
+            throw new Error(`Activité avec l'ID ${activiteId} non trouvée`);
+          }
+          if (!activity.isActive) {
+            throw new Error(`L'activité "${activity.nomActivite}" n'est pas active`);
+          }
+          
+          activitesIncluses.push({
+            id: activity.id,
+            nomActivite: activity.nomActivite,
+            prix: parseFloat(activity.prix),
+            description: activity.description
+          });
+        }
+      }
+      updateData.activitesIncluses = activitesIncluses;
     }
 
     // Si la configuration des chambres change, sélectionner de nouvelles chambres

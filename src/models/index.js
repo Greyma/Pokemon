@@ -5,6 +5,7 @@ const EmployeeAction = require('./EmployeeAction');
 const MaintenanceMode = require('./MaintenanceMode');
 const Convention = require('./Convention');
 const ConventionRoom = require('./ConventionRoom');
+const Activity = require('./Activity');
 
 // Importer les associations définies dans associations.js
 require('./associations');
@@ -16,5 +17,6 @@ module.exports = {
   EmployeeAction,
   MaintenanceMode,
   Convention,
-  ConventionRoom
+  ConventionRoom,
+  Activity
 }; 

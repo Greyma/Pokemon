@@ -137,6 +137,19 @@ const Convention = sequelize.define('Convention', {
   createdBy: {
     type: DataTypes.UUID,
     allowNull: false
+  },
+  activitesIncluses: {
+    type: DataTypes.JSON,
+    allowNull: false,
+    defaultValue: [],
+    comment: 'Liste des activités incluses gratuitement dans la convention',
+    get() {
+      const rawValue = this.getDataValue('activitesIncluses');
+      return rawValue ? JSON.parse(JSON.stringify(rawValue)) : [];
+    },
+    set(value) {
+      this.setDataValue('activitesIncluses', value);
+    }
   }
 }, {
   timestamps: true,
