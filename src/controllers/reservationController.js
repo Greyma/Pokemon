@@ -833,6 +833,7 @@ exports.getAvailableRooms = async (req, res) => {
       });
     }
 
+  
     // Trouver les chambres réservées pour la période (réservations normales)
     const reservedRooms = await Reservation.findAll({
       where: {
@@ -857,7 +858,7 @@ exports.getAvailableRooms = async (req, res) => {
       attributes: ['chambreId']
     });
     const reservedRoomIds = reservedRooms.map(r => r.chambreId);
-
+  
     // Trouver les chambres occupées par des conventions pour la période
     const conventionRooms = await Convention.findAll({
       where: {
@@ -875,7 +876,9 @@ exports.getAvailableRooms = async (req, res) => {
             ]
           }
         ],
-        statut: 'ACTIVE'
+        statut: 'ACTIVE',
+        // Exclure la convention actuelle si on recherche pour une convention
+        ...(conventionId && { id: { [Op.ne]: conventionId } })
       },
       include: [
         {
@@ -887,11 +890,13 @@ exports.getAvailableRooms = async (req, res) => {
       ]
     });
     const conventionRoomIds = conventionRooms.flatMap(conv => conv.rooms.map(room => room.id));
+    
     const allOccupiedRoomIds = [...new Set([...reservedRoomIds, ...conventionRoomIds])];
 
     let availableRooms = [];
 
     if (conventionId) {
+      
       // Recherche pour un conventionné : uniquement les chambres de la convention, disponibles
       const convention = await Convention.findByPk(conventionId, {
         include: [
@@ -921,10 +926,52 @@ exports.getAvailableRooms = async (req, res) => {
         });
       }
 
+
+      const conventionReservations = await Reservation.findAll({
+        where: {
+          conventionId: conventionId,
+          [Op.or]: [
+            {
+              dateEntree: { [Op.between]: [startDate, endDate] }
+            },
+            {
+              dateSortie: { [Op.between]: [startDate, endDate] }
+            },
+            {
+              [Op.and]: [
+                { dateEntree: { [Op.lte]: startDate } },
+                { dateSortie: { [Op.gte]: endDate } }
+              ]
+            }
+          ],
+          statut: {
+            [Op.notIn]: ['annulee', 'terminee']
+          }
+        },
+        attributes: ['chambreId', 'dateEntree', 'dateSortie', 'statut', 'reservationId']
+      });
+      const reservedConventionRoomIds = conventionReservations.map(r => r.chambreId);
+      // Vérifier toutes les réservations de cette convention pour debug
+      const allConventionReservations = await Reservation.findAll({
+        where: {
+          conventionId: conventionId
+        },
+        attributes: ['reservationId', 'chambreId', 'dateEntree', 'dateSortie', 'statut']
+      });
+
+
+      // Vérifier si la chambre 4 est bien dans la convention
+      const room4InConvention = convention.rooms.find(r => r.id == 4);
+
       // Filtrer les chambres de la convention qui ne sont pas occupées
-      const availableConventionRooms = convention.rooms.filter(room =>
-        room.isActive && !allOccupiedRoomIds.includes(room.id)
-      ).map(room => ({
+      const availableConventionRooms = convention.rooms.filter(room => {
+        const isActive = room.isActive;
+        const notOccupiedByOthers = !allOccupiedRoomIds.includes(room.id);
+        // Convertir les IDs en nombres pour la comparaison
+        const notReservedInConvention = !reservedConventionRoomIds.some(id => parseInt(id) === room.id);
+        
+        return isActive && notOccupiedByOthers && notReservedInConvention;
+      }).map(room => ({
         ...room.toJSON(),
         isAvailable: true,
         conventionInfo: {
@@ -937,6 +984,7 @@ exports.getAvailableRooms = async (req, res) => {
 
       availableRooms = availableConventionRooms;
     } else {
+      
       // Recherche pour un non-conventionné : toutes les chambres libres, hors chambres de conventions actives
       const allRooms = await Room.findAll({
         where: {
@@ -945,17 +993,19 @@ exports.getAvailableRooms = async (req, res) => {
         attributes: ['id', 'number', 'type', 'basePrice', 'extraPersonPrice', 'capacity']
       });
 
-      availableRooms = allRooms.filter(room => 
+       availableRooms = allRooms.filter(room => 
         !allOccupiedRoomIds.includes(room.id)
       ).map(room => ({
         ...room.toJSON(),
         isAvailable: true
       }));
+
     }
+
 
     res.json({
       success: true,
-      data: availableRooms
+      data: availableRooms,
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des chambres disponibles:', error);

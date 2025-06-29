@@ -132,7 +132,13 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('Connexion à la base de données établie avec succès.');
     
-    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    // Utiliser force: true seulement en développement et si nécessaire
+    // alter: true peut causer des problèmes avec les contraintes d'unicité
+    const syncOptions = process.env.NODE_ENV === 'development' 
+      ? { force: false } // Désactiver alter pour éviter les problèmes
+      : { force: false };
+    
+    await sequelize.sync(syncOptions);
     console.log('Modèles synchronisés avec la base de données.');
 
     app.listen(PORT, () => {

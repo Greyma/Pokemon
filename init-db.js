@@ -124,9 +124,50 @@ async function initializeDatabase() {
   }
 }
 
+async function cleanDatabase() {
+  try {
+    await sequelize.authenticate();
+    console.log('Connexion à la base de données établie.');
+
+    // Supprimer les utilisateurs avec username null
+    const deletedCount = await User.destroy({
+      where: {
+        username: null
+      }
+    });
+    
+    console.log(`${deletedCount} utilisateurs avec username null ont été supprimés.`);
+
+    // Vérifier s'il reste des doublons
+    const users = await User.findAll({
+      attributes: ['username'],
+      where: {
+        username: {
+          [sequelize.Op.ne]: null
+        }
+      }
+    });
+
+    const usernames = users.map(u => u.username);
+    const duplicates = usernames.filter((item, index) => usernames.indexOf(item) !== index);
+    
+    if (duplicates.length > 0) {
+      console.log('⚠️  Usernames en double trouvés:', [...new Set(duplicates)]);
+    } else {
+      console.log('✅ Aucun username en double trouvé.');
+    }
+
+    await sequelize.close();
+    console.log('Base de données nettoyée avec succès.');
+  } catch (error) {
+    console.error('Erreur lors du nettoyage:', error);
+  }
+}
+
 // Exécuter l'initialisation si le fichier est appelé directement
 if (require.main === module) {
   initializeDatabase();
+  cleanDatabase();
 }
 
 module.exports = { initializeDatabase }; 
