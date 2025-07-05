@@ -124,7 +124,8 @@ app.use((req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
+// Configuration pour Passenger en production
+const PORT = process.env.PORT || process.env.PASSENGER_PORT || 3001;
 
 // Database connection and server start
 async function startServer() {
@@ -132,27 +133,34 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('Connexion à la base de données établie avec succès.');
     
-    // Utiliser force: true seulement en développement et si nécessaire
-    // alter: true peut causer des problèmes avec les contraintes d'unicité
-    const syncOptions = process.env.NODE_ENV === 'development' 
-      ? { force: false } // Désactiver alter pour éviter les problèmes
-      : { force: false };
+    // Configuration de synchronisation adaptée à la production
+    const syncOptions = process.env.NODE_ENV === 'production' 
+      ? { force: false, alter: false } // Production : pas de modification de structure
+      : { force: false, alter: false }; // Développement : pas de modification automatique
     
     await sequelize.sync(syncOptions);
     console.log('Modèles synchronisés avec la base de données.');
 
-    app.listen(PORT, () => {
-      console.log(`Serveur démarré sur le port ${PORT}`);
-    });
+    // En production avec Passenger, on n'écoute pas sur un port spécifique
+    // Passenger gère automatiquement le port
+    if (process.env.NODE_ENV !== 'production' || !process.env.PASSENGER_APP_ENV) {
+      app.listen(PORT, () => {
+        console.log(`Serveur démarré sur le port ${PORT}`);
+      });
+    } else {
+      console.log('Application démarrée en mode production avec Passenger');
+    }
   } catch (error) {
     console.error('Impossible de démarrer le serveur:', error);
+    process.exit(1);
   }
 }
 
-// Export l'application pour les tests
+// Export l'application pour Passenger et les tests
 module.exports = app;
 
 // Démarrer le serveur seulement si ce fichier est exécuté directement
+// En production avec Passenger, cette condition ne sera pas vraie
 if (require.main === module) {
   startServer();
 } 

@@ -3,12 +3,17 @@
   "version": "1.0.0",
   "description": "Backend pour la gestion d'un complexe hôtelier",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "jest",
     "test:api": "node test.js",
-    "init-db": "node init-db.js"
+    "init-db": "node init-db.js",
+    "postinstall": "echo 'Installation terminée - Application prête pour la production'"
   },
   "dependencies": {
     "axios": "^1.9.0",
