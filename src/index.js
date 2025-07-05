@@ -11,6 +11,7 @@ const maintenanceRoutes = require('./routes/maintenanceRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const conventionRoutes = require('./routes/conventionRoutes');
+const supplementRoutes = require('./routes/supplementRoutes');
 const path = require('path');
 const fileUpload = require('express-fileupload');
 
@@ -59,6 +60,7 @@ app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/conventions', conventionRoutes);
+app.use('/api/supplements', supplementRoutes);
 
 // Servir les fichiers statiques du dossier public
 app.use(express.static(path.join(__dirname, '../public')));

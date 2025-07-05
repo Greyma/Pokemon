@@ -3,6 +3,12 @@ const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs').promises;
 const PDFDocument = require('pdfkit');
+const { 
+  calculateReservationPrice, 
+  validateSupplements, 
+  validateActivities, 
+  validateDiscount 
+} = require('../utils/priceCalculator');
 
 // Créer une nouvelle réservation
 exports.createReservation = async (req, res) => {
@@ -15,23 +21,28 @@ exports.createReservation = async (req, res) => {
       adresse,
       dateEntree,
       dateSortie,
-      nombrePersonnes,
+      nombreAdultes,
+      nombreEnfants = 0,
       chambreId,
       numeroChambre,
       typeChambre,
-      montantTotal,
-      paiements,
+      suppléments = [],
+      activites = [],
+      remise = null,
+      methodePaiement,
+      montantPaye = 0,
+      paiements = [],
       nomGarant,
       remarques,
       receptionnisteId,
       receptionniste,
       conventionId,
-      activites
+      typeReservation = 'standard'
     } = req.body;
 
     // Vérifier les données requises
     if (!reservationId || !nomClient || !email || !telephone || !adresse || !dateEntree || !dateSortie || 
-        !nombrePersonnes || !chambreId || !numeroChambre || !typeChambre || !receptionnisteId || !receptionniste) {
+        !nombreAdultes || !chambreId || !numeroChambre || !typeChambre || !receptionnisteId || !receptionniste) {
       return res.status(400).json({
         success: false,
         message: 'Données de réservation incomplètes'
@@ -57,72 +68,47 @@ exports.createReservation = async (req, res) => {
       });
     }
 
-    // Valider et calculer le prix des activités
-    let activitesFinal = [];
-    let prixActivites = 0;
-    
-    if (activites && Array.isArray(activites) && activites.length > 0) {
-      const { Activity } = require('../models');
-      
-      for (const activite of activites) {
-        if (!activite.id || !activite.nomActivite || activite.prix === undefined) {
-          return res.status(400).json({
-            success: false,
-            message: 'Données d\'activité incomplètes'
-          });
-        }
-
-        // Vérifier que l'activité existe et est active
-        const activity = await Activity.findByPk(activite.id);
-        if (!activity) {
-          return res.status(404).json({
-            success: false,
-            message: `Activité avec l'ID ${activite.id} non trouvée`
-          });
-        }
-
-        if (!activity.isActive) {
-          return res.status(400).json({
-            success: false,
-            message: `L'activité "${activity.nomActivite}" n'est pas active`
-          });
-        }
-
-        // Vérifier que le prix correspond
-        if (parseFloat(activite.prix) !== parseFloat(activity.prix)) {
-          return res.status(400).json({
-            success: false,
-            message: `Le prix de l'activité "${activity.nomActivite}" ne correspond pas`
-          });
-        }
-
-        // Vérifier si l'activité est incluse dans la convention
-        let isIncluse = false;
-        if (conventionId) {
-          const convention = await Convention.findByPk(conventionId);
-          if (convention && convention.activitesIncluses) {
-            isIncluse = convention.activitesIncluses.some(act => act.id === activity.id);
-          }
-        }
-
-        activitesFinal.push({
-          id: activity.id,
-          nomActivite: activity.nomActivite,
-          prix: parseFloat(activity.prix),
-          description: activity.description,
-          incluse: isIncluse
-        });
-
-        // Ajouter le prix seulement si l'activité n'est pas incluse dans la convention
-        if (!isIncluse) {
-          prixActivites += parseFloat(activity.prix);
-        }
-      }
+    // Valider les suppléments
+    const supplementsValidation = await validateSupplements(suppléments);
+    if (!supplementsValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: supplementsValidation.error
+      });
     }
 
-    let montantTotalFinal = montantTotal;
-    let paiementsFinal = paiements || [];
-    let statut = 'en_cours';
+    // Valider les activités
+    const activitiesValidation = await validateActivities(activites);
+    if (!activitiesValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: activitiesValidation.error
+      });
+    }
+
+    // Valider la remise
+    const discountValidation = validateDiscount(remise);
+    if (!discountValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: discountValidation.error
+      });
+    }
+
+    // Calculer le prix total
+    const priceCalculation = await calculateReservationPrice({
+      roomId: chambreId,
+      checkInDate: dateEntree,
+      checkOutDate: dateSortie,
+      numberOfAdults: nombreAdultes,
+      numberOfChildren: nombreEnfants,
+      supplements: suppléments,
+      activities: activites,
+      discount: remise,
+      conventionId
+    });
+
+    const { totalPrice, subtotal, discountAmount, priceDetails } = priceCalculation;
 
     // Si une conventionId est spécifiée, vérifier que la chambre appartient à cette convention
     if (conventionId) {
@@ -164,9 +150,8 @@ exports.createReservation = async (req, res) => {
         });
       }
 
-      // Pour les conventions, le prix de la chambre est gratuit mais les activités restent payantes
-      montantTotalFinal = prixActivites;
-      paiementsFinal = [];
+      // Pour les conventions, le prix de la chambre est gratuit mais les suppléments et activités restent payants
+      // Le calcul a déjà été fait dans calculateReservationPrice
       statut = 'validee';
     } else {
       // Vérifier la disponibilité de la chambre (réservations normales)
@@ -235,12 +220,9 @@ exports.createReservation = async (req, res) => {
         });
       }
 
-      // Ajouter le prix des activités au montant total
-      montantTotalFinal = parseFloat(montantTotal) + prixActivites;
-      
       // Calculer le montant total des paiements
       const totalPaiements = paiements ? paiements.reduce((sum, paiement) => sum + paiement.montant, 0) : 0;
-      statut = totalPaiements >= montantTotalFinal ? 'validee' : 'en_cours';
+      statut = totalPaiements >= totalPrice ? 'validee' : 'en_cours';
     }
 
     // Gérer l'upload du fichier PDF si présent
@@ -289,12 +271,16 @@ exports.createReservation = async (req, res) => {
       adresse,
       dateEntree: checkIn,
       dateSortie: checkOut,
-      nombrePersonnes,
+      nombreAdultes,
+      nombreEnfants,
       chambreId,
       numeroChambre,
       typeChambre,
-      montantTotal: montantTotalFinal,
-      paiements: paiementsFinal,
+      montantTotal: totalPrice,
+      montantRemise: discountAmount,
+      montantPaye,
+      methodePaiement,
+      paiements: paiements,
       nomGarant: nomGarant || '',
       remarques: remarques || '',
       receptionnisteId,
@@ -303,7 +289,10 @@ exports.createReservation = async (req, res) => {
       receptionniste,
       preuvePaiement: preuvePaiementPath,
       conventionId: conventionId || null,
-      activites: activitesFinal
+      suppléments: supplementsValidation.supplements,
+      activites: activitiesValidation.activities,
+      remise: discountValidation.discount,
+      typeReservation
     });
 
     // Mettre à jour le statut de la chambre
@@ -325,7 +314,17 @@ exports.createReservation = async (req, res) => {
 // Calculer le prix d'une réservation
 exports.calculatePrice = async (req, res) => {
   try {
-    const { checkInDate, checkOutDate, roomId, numberOfAdults, numberOfChildren = 0, conventionId, activites } = req.body;
+    const { 
+      checkInDate, 
+      checkOutDate, 
+      roomId, 
+      numberOfAdults, 
+      numberOfChildren = 0, 
+      conventionId, 
+      suppléments = [],
+      activites = [],
+      remise = null
+    } = req.body;
 
     // Vérifier les données requises
     if (!checkInDate || !checkOutDate || !numberOfAdults) {
@@ -345,179 +344,55 @@ exports.calculatePrice = async (req, res) => {
       });
     }
 
-    // Calculer le prix des activités
-    let prixActivites = 0;
-    let activitesDetails = [];
-    
-    if (activites && Array.isArray(activites) && activites.length > 0) {
-      const { Activity } = require('../models');
-      
-      for (const activite of activites) {
-        if (!activite.id) {
-          return res.status(400).json({
-            success: false,
-            message: 'ID d\'activité manquant'
-          });
-        }
-
-        const activity = await Activity.findByPk(activite.id);
-        if (!activity) {
-          return res.status(404).json({
-            success: false,
-            message: `Activité avec l'ID ${activite.id} non trouvée`
-          });
-        }
-
-        if (!activity.isActive) {
-          return res.status(400).json({
-            success: false,
-            message: `L'activité "${activity.nomActivite}" n'est pas active`
-          });
-        }
-
-        // Vérifier si l'activité est incluse dans la convention
-        let isIncluse = false;
-        if (conventionId) {
-          const convention = await Convention.findByPk(conventionId);
-          if (convention && convention.activitesIncluses) {
-            isIncluse = convention.activitesIncluses.some(act => act.id === activity.id);
-          }
-        }
-
-        activitesDetails.push({
-          id: activity.id,
-          nomActivite: activity.nomActivite,
-          prix: parseFloat(activity.prix),
-          description: activity.description,
-          incluse: isIncluse
-        });
-
-        // Ajouter le prix seulement si l'activité n'est pas incluse dans la convention
-        if (!isIncluse) {
-          prixActivites += parseFloat(activity.prix);
-        }
-      }
-    }
-
-    // Si roomId n'est pas fourni, retourner un prix par défaut
-    if (!roomId) {
-      const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-      const defaultBasePrice = 10000; // Prix par défaut
-      const defaultExtraPersonPrice = 2000; // Prix par personne supplémentaire par défaut
-      const defaultCapacity = 2; // Capacité par défaut
-      const extraAdults = Math.max(0, numberOfAdults - defaultCapacity);
-      const basePrice = defaultBasePrice * nights;
-      const extraPrice = extraAdults * defaultExtraPersonPrice * nights;
-      const totalPrice = basePrice + extraPrice + prixActivites;
-
-      return res.json({
-        success: true,
-        data: {
-          totalPrice,
-          priceDetails: {
-            basePrice: defaultBasePrice,
-            extraPersonPrice: defaultExtraPersonPrice,
-            nights,
-            capacity: defaultCapacity,
-            extraAdults,
-            basePrice: basePrice,
-            extraPrice,
-            prixActivites,
-            activites: activitesDetails,
-            isConventionMember: false
-          }
-        }
-      });
-    }
-
-    // Vérifier la chambre
-    const room = await Room.findByPk(roomId);
-    if (!room) {
-      return res.status(404).json({
+    // Valider les suppléments
+    const supplementsValidation = await validateSupplements(suppléments);
+    if (!supplementsValidation.valid) {
+      return res.status(400).json({
         success: false,
-        message: 'Chambre non trouvée'
+        message: supplementsValidation.error
       });
     }
 
-    // Vérifier si c'est une réservation conventionnée
-    let isConventionMember = false;
-    let convention = null;
-
-    if (conventionId) {
-      convention = await Convention.findByPk(conventionId, {
-        include: [
-          {
-            model: Room,
-            as: 'rooms',
-            through: { attributes: [] },
-            attributes: ['id']
-          }
-        ]
+    // Valider les activités
+    const activitiesValidation = await validateActivities(activites);
+    if (!activitiesValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: activitiesValidation.error
       });
+    }
 
-      if (!convention) {
-        return res.status(404).json({
-          success: false,
-          message: 'Convention non trouvée'
-        });
-      }
-
-      // Vérifier que la chambre appartient à la convention
-      const conventionRoomIds = convention.rooms.map(r => r.id);
-      if (!conventionRoomIds.includes(parseInt(roomId))) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cette chambre n\'appartient pas à la convention spécifiée'
-        });
-      }
-
-      // Vérifier que les dates correspondent à la période de la convention
-      const conventionStart = new Date(convention.dateDebut);
-      const conventionEnd = new Date(convention.dateFin);
-      
-      if (checkIn < conventionStart || checkOut > conventionEnd) {
-        return res.status(400).json({
-          success: false,
-          message: 'Les dates de réservation doivent être dans la période de la convention'
-        });
-      }
-
-      isConventionMember = true;
+    // Valider la remise
+    const discountValidation = validateDiscount(remise);
+    if (!discountValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: discountValidation.error
+      });
     }
 
     // Calculer le prix total
-    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-    const basePrice = room.basePrice * nights;
-    const extraAdults = Math.max(0, numberOfAdults - room.capacity);
-    const extraPrice = extraAdults * room.extraPersonPrice * nights;
-    
-    // Pour les conventionnés, le prix de la chambre est gratuit mais les activités restent payantes
-    const roomPrice = isConventionMember ? 0 : (basePrice + extraPrice);
-    const totalPrice = roomPrice + prixActivites;
+    const priceCalculation = await calculateReservationPrice({
+      roomId,
+      checkInDate,
+      checkOutDate,
+      numberOfAdults,
+      numberOfChildren,
+      supplements: suppléments,
+      activities: activites,
+      discount: remise,
+      conventionId
+    });
+
+    const { totalPrice, subtotal, discountAmount, priceDetails } = priceCalculation;
 
     res.json({
       success: true,
       data: {
         totalPrice,
-        priceDetails: {
-          basePrice: room.basePrice,
-          extraPersonPrice: room.extraPersonPrice,
-          nights,
-          capacity: room.capacity,
-          extraAdults,
-          basePriceTotal: basePrice,
-          extraPrice,
-          roomPrice,
-          prixActivites,
-          activites: activitesDetails,
-          isConventionMember,
-          conventionInfo: isConventionMember ? {
-            numeroConvention: convention.numeroConvention,
-            nomSociete: convention.nomSociete,
-            dateDebut: convention.dateDebut,
-            dateFin: convention.dateFin
-          } : null
-        }
+        subtotal,
+        discountAmount,
+        priceDetails
       }
     });
   } catch (error) {
@@ -1433,6 +1308,30 @@ exports.getAvailableActivities = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des activités disponibles'
+    });
+  }
+};
+
+// Obtenir les suppléments disponibles
+exports.getAvailableSupplements = async (req, res) => {
+  try {
+    const { Supplement } = require('../models');
+
+    const supplements = await Supplement.findAll({
+      where: { isActive: true },
+      order: [['nom', 'ASC']],
+      attributes: ['id', 'nom', 'prix']
+    });
+
+    res.json({
+      success: true,
+      data: supplements
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des suppléments disponibles:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des suppléments disponibles'
     });
   }
 }; 

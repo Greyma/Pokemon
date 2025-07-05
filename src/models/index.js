@@ -6,6 +6,7 @@ const MaintenanceMode = require('./MaintenanceMode');
 const Convention = require('./Convention');
 const ConventionRoom = require('./ConventionRoom');
 const Activity = require('./Activity');
+const Supplement = require('./Supplement');
 
 // Importer les associations définies dans associations.js
 require('./associations');
@@ -18,5 +19,6 @@ module.exports = {
   MaintenanceMode,
   Convention,
   ConventionRoom,
-  Activity
+  Activity,
+  Supplement
 }; 

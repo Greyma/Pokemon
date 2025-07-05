@@ -10,6 +10,7 @@ router.use(authenticateToken);
 router.get('/available-rooms', reservationController.getAvailableRooms);
 router.get('/rooms', reservationController.getAvailableRooms);
 router.get('/available-activities', reservationController.getAvailableActivities);
+router.get('/available-supplements', reservationController.getAvailableSupplements);
 router.get('/convention/:conventionId/reservations', reservationController.getConventionReservations);
 router.get('/room/:roomId/reservations', reservationController.getRoomReservations);
 router.get('/:id', reservationController.getReservationById);

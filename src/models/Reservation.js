@@ -44,11 +44,19 @@ const Reservation = sequelize.define('Reservation', {
     allowNull: true,
     comment: 'Date réelle de sortie du client'
   },
-  nombrePersonnes: {
+  nombreAdultes: {
     type: DataTypes.INTEGER,
     allowNull: false,
     validate: {
       min: 1
+    }
+  },
+  nombreEnfants: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    validate: {
+      min: 0
     }
   },
   chambreId: {
@@ -115,11 +123,24 @@ const Reservation = sequelize.define('Reservation', {
     allowNull: true,
     comment: 'ID de la convention si cette réservation est liée à une convention'
   },
+  suppléments: {
+    type: DataTypes.JSON,
+    allowNull: false,
+    defaultValue: [],
+    comment: 'Liste des suppléments sélectionnés avec leurs prix et quantités',
+    get() {
+      const rawValue = this.getDataValue('suppléments');
+      return rawValue ? JSON.parse(JSON.stringify(rawValue)) : [];
+    },
+    set(value) {
+      this.setDataValue('suppléments', value);
+    }
+  },
   activites: {
     type: DataTypes.JSON,
     allowNull: false,
     defaultValue: [],
-    comment: 'Liste des activités sélectionnées avec leurs prix',
+    comment: 'Liste des activités sélectionnées avec leurs prix et quantités',
     get() {
       const rawValue = this.getDataValue('activites');
       return rawValue ? JSON.parse(JSON.stringify(rawValue)) : [];
@@ -127,6 +148,40 @@ const Reservation = sequelize.define('Reservation', {
     set(value) {
       this.setDataValue('activites', value);
     }
+  },
+  remise: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: 'Informations sur la remise appliquée',
+    get() {
+      const rawValue = this.getDataValue('remise');
+      return rawValue ? JSON.parse(JSON.stringify(rawValue)) : null;
+    },
+    set(value) {
+      this.setDataValue('remise', value);
+    }
+  },
+  montantRemise: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0,
+    comment: 'Montant de la remise calculée'
+  },
+  montantPaye: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0,
+    comment: 'Montant déjà payé'
+  },
+  methodePaiement: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Méthode de paiement principale'
+  },
+  typeReservation: {
+    type: DataTypes.ENUM('standard', 'convention'),
+    allowNull: false,
+    defaultValue: 'standard'
   }
 }, {
   timestamps: true,

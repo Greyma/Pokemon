@@ -23,6 +23,7 @@ exports.createRoom = async (req, res) => {
       capacity,
       basePrice,
       extraPersonPrice,
+      childPrice,
       description
     } = req.body;
 
@@ -58,6 +59,13 @@ exports.createRoom = async (req, res) => {
       });
     }
 
+    if (childPrice && childPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le prix par enfant ne peut pas être négatif'
+      });
+    }
+
     // Vérifier si le numéro de chambre existe déjà
     const existingRoom = await Room.findOne({ where: { number } });
     if (existingRoom) {
@@ -74,6 +82,7 @@ exports.createRoom = async (req, res) => {
       capacity,
       basePrice,
       extraPersonPrice: extraPersonPrice || 0,
+      childPrice: childPrice || 0,
       description,
       status: 'LIBRE',
       isActive: true
@@ -147,6 +156,7 @@ exports.updateRoom = async (req, res) => {
       capacity,
       basePrice,
       extraPersonPrice,
+      childPrice,
       description
     } = req.body;
 
@@ -181,12 +191,20 @@ exports.updateRoom = async (req, res) => {
       });
     }
 
+    if (childPrice !== undefined && childPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le prix par enfant ne peut pas être négatif'
+      });
+    }
+
     // Mettre à jour la chambre
     await room.update({
       type: type || room.type,
       capacity: capacity || room.capacity,
       basePrice: basePrice || room.basePrice,
       extraPersonPrice: extraPersonPrice !== undefined ? extraPersonPrice : room.extraPersonPrice,
+      childPrice: childPrice !== undefined ? childPrice : room.childPrice,
       description: description || room.description
     });
 

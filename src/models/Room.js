@@ -27,6 +27,14 @@ Room.init({
       min: 0
     }
   },
+  childPrice: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    validate: {
+      min: 0
+    }
+  },
   status: {
     type: DataTypes.ENUM('LIBRE', 'RÉSERVÉE', 'OCCUPÉE'),
     defaultValue: 'LIBRE'
@@ -60,6 +68,9 @@ Room.init({
       }
       if (this.extraPersonPrice < 0) {
         throw new Error('Le prix par personne supplémentaire doit être positif');
+      }
+      if (this.childPrice < 0) {
+        throw new Error('Le prix par enfant doit être positif');
       }
     }
   }
