@@ -42,26 +42,34 @@ async function updateDatabase() {
       }
     }
 
-    // Mettre à jour les chambres existantes avec le prix par enfant
+    // Mettre à jour les chambres existantes avec childPrice
     const rooms = await Room.findAll();
+    
     for (const room of rooms) {
-      if (room.childPrice === null || room.childPrice === undefined || room.childPrice === 0) {
-        // Définir un prix par enfant par défaut basé sur le type de chambre
-        let defaultChildPrice = 0;
-        switch (room.type) {
-          case 'STANDARD':
-            defaultChildPrice = Math.floor(room.basePrice * 0.3); // 30% du prix de base
-            break;
-          case 'VIP':
-            defaultChildPrice = Math.floor(room.basePrice * 0.4); // 40% du prix de base
-            break;
-          case 'SUITE':
-            defaultChildPrice = Math.floor(room.basePrice * 0.5); // 50% du prix de base
-            break;
-        }
-        
-        await room.update({ childPrice: defaultChildPrice });
-        console.log(`✅ Chambre ${room.number} mise à jour avec prix enfant: ${defaultChildPrice}`);
+      let childPrice = 0;
+      
+      // Définir childPrice selon le type de chambre
+      switch (room.type) {
+        case 'STANDARD':
+          childPrice = 500;
+          break;
+        case 'VIP':
+          childPrice = 800;
+          break;
+        case 'SUITE':
+          childPrice = 1200;
+          break;
+        default:
+          childPrice = 500;
+      }
+      
+      // Mettre à jour la chambre si childPrice est null ou undefined
+      if (room.childPrice === null || room.childPrice === undefined) {
+        await room.update({
+          childPrice: childPrice,
+          status: room.status === 'DISPONIBLE' ? 'LIBRE' : room.status
+        });
+        console.log(`Chambre ${room.number} mise à jour - childPrice: ${childPrice}, status: ${room.status === 'DISPONIBLE' ? 'LIBRE' : room.status}`);
       }
     }
 

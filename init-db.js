@@ -42,9 +42,11 @@ async function initializeDatabase() {
           type: 'STANDARD',
           basePrice: 5000,
           extraPersonPrice: 1000,
+          childPrice: 500,
           capacity: 2,
+          description: 'Chambre standard confortable',
           isActive: true,
-          status: 'DISPONIBLE'
+          status: 'LIBRE'
         });
       }
       
@@ -55,9 +57,11 @@ async function initializeDatabase() {
           type: 'VIP',
           basePrice: 8000,
           extraPersonPrice: 1500,
+          childPrice: 800,
           capacity: 3,
+          description: 'Chambre VIP avec services premium',
           isActive: true,
-          status: 'DISPONIBLE'
+          status: 'LIBRE'
         });
       }
       
@@ -68,9 +72,11 @@ async function initializeDatabase() {
           type: 'SUITE',
           basePrice: 12000,
           extraPersonPrice: 2000,
+          childPrice: 1200,
           capacity: 4,
+          description: 'Suite luxueuse avec vue panoramique',
           isActive: true,
-          status: 'DISPONIBLE'
+          status: 'LIBRE'
         });
       }
       
