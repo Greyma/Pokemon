@@ -67,4 +67,11 @@ router.post('/generate-pdf',
   generateActivityPDF
 );
 
+// Rapport de présence à une activité sur une période
+router.get('/report/:activityId', 
+  authenticateToken, 
+  hasRole(['MANAGER', 'RECEPTIONIST']), 
+  ActivityController.reportActivityPresence
+);
+
 module.exports = router; 

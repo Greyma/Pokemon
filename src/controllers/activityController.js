@@ -430,6 +430,88 @@ class ActivityController {
       });
     }
   }
+
+  // Rapport de présence à une activité sur une période
+  static async reportActivityPresence(req, res) {
+    try {
+      const { activityId } = req.params;
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Les dates de début et de fin sont requises'
+        });
+      }
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (isNaN(start) || isNaN(end) || start > end) {
+        return res.status(400).json({
+          success: false,
+          message: 'Dates invalides'
+        });
+      }
+      // Importer Reservation et Room
+      const { Reservation, Room } = require('../models');
+      // Chercher toutes les réservations qui incluent cette activité et qui sont sur la période
+      const reservations = await Reservation.findAll({
+        where: {
+          dateEntree: { [Op.lte]: end },
+          dateSortie: { [Op.gte]: start },
+          statut: { [Op.notIn]: ['annulee', 'terminee'] }
+        },
+        include: [
+          {
+            model: Room,
+            attributes: ['number']
+          }
+        ]
+      });
+      // Pour chaque jour de la période, calculer le bilan
+      const result = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const day = d.toISOString().split('T')[0];
+        let totalAdults = 0;
+        let totalChildren = 0;
+        let dayReservations = [];
+        for (const r of reservations) {
+          // Vérifier si la réservation est active ce jour-là
+          const entree = new Date(r.dateEntree);
+          const sortie = new Date(r.dateSortie);
+          if (entree <= d && sortie >= d) {
+            // Vérifier si l'activité est dans la réservation
+            const activities = Array.isArray(r.activites) ? r.activites : [];
+            if (activities.some(a => a.id == activityId || a === activityId)) {
+              totalAdults += r.nombreAdultes || 0;
+              totalChildren += r.nombreEnfants || 0;
+              dayReservations.push({
+                reservationId: r.reservationId,
+                clientName: r.nomClient,
+                roomNumber: r.Room ? r.Room.number : null,
+                adults: r.nombreAdultes || 0,
+                children: r.nombreEnfants || 0
+              });
+            }
+          }
+        }
+        result.push({
+          date: day,
+          totalAdults,
+          totalChildren,
+          reservations: dayReservations
+        });
+      }
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      console.error('Erreur lors du rapport de présence activité:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors du rapport de présence activité'
+      });
+    }
+  }
 }
 
 module.exports = {
