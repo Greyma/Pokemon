@@ -351,4 +351,51 @@ exports.releaseRoom = async (req, res) => {
       message: 'Erreur lors de la libération de la chambre'
     });
   }
+};
+
+// Supprimer une chambre
+exports.deleteRoom = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const room = await Room.findByPk(id);
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chambre non trouvée'
+      });
+    }
+
+    // Vérifier si la chambre a des réservations actives
+    const { Reservation } = require('../models');
+    const activeReservations = await Reservation.findAll({
+      where: {
+        roomId: id,
+        statut: {
+          [Op.in]: ['CONFIRMEE', 'EN_COURS', 'EN_ATTENTE']
+        }
+      }
+    });
+
+    if (activeReservations.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de supprimer cette chambre car elle a des réservations actives'
+      });
+    }
+
+    // Supprimer la chambre
+    await room.destroy();
+
+    res.json({
+      success: true,
+      message: 'Chambre supprimée avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la chambre:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la suppression de la chambre'
+    });
+  }
 }; 

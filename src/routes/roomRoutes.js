@@ -11,6 +11,7 @@ router.post('/', hasRole('MANAGER'), roomController.createRoom);
 router.put('/:id', hasRole('MANAGER'), roomController.updateRoom);
 router.patch('/:id/status', hasRole('MANAGER'), roomController.updateRoomStatus);
 router.patch('/:id/release', hasRole('MANAGER'), roomController.releaseRoom);
+router.delete('/:id', hasRole('MANAGER'), roomController.deleteRoom);
 
 // Routes pour tous les utilisateurs authentifiés
 router.get('/', roomController.getAllRooms);
