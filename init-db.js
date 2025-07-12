@@ -12,12 +12,18 @@ async function initializeDatabase() {
       {
         username: 'manager1',
         password: 'manager123',
+        firstName: 'Manager',
+        lastName: 'Principal',
+        email: 'manager1@hotel.local',
         role: 'MANAGER',
         isActive: true
       },
       {
         username: 'receptionist1',
         password: 'reception123',
+        firstName: 'Réceptionniste',
+        lastName: 'Principal',
+        email: 'receptionist1@hotel.local',
         role: 'RECEPTIONIST',
         isActive: true
       }
