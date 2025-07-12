@@ -3,12 +3,6 @@ const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs').promises;
 const PDFDocument = require('pdfkit');
-const { 
-  calculateReservationPrice, 
-  validateSupplements, 
-  validateActivities, 
-  validateDiscount 
-} = require('../utils/priceCalculator');
 
 // Créer une nouvelle réservation
 exports.createReservation = async (req, res) => {
@@ -26,6 +20,8 @@ exports.createReservation = async (req, res) => {
       chambreId,
       numeroChambre,
       typeChambre,
+      montantTotal,
+      montantRemise = 0,
       suppléments = [],
       activites = [],
       remise = null,
@@ -42,7 +38,7 @@ exports.createReservation = async (req, res) => {
 
     // Vérifier les données requises
     if (!reservationId || !nomClient || !email || !telephone || !adresse || !dateEntree || !dateSortie || 
-        !nombreAdultes || !chambreId || !numeroChambre || !typeChambre || !receptionnisteId || !receptionniste) {
+        !nombreAdultes || !chambreId || !numeroChambre || !typeChambre || !receptionnisteId || !receptionniste || !montantTotal) {
       return res.status(400).json({
         success: false,
         message: 'Données de réservation incomplètes'
@@ -67,48 +63,6 @@ exports.createReservation = async (req, res) => {
         message: 'Chambre non trouvée'
       });
     }
-
-    // Valider les suppléments
-    const supplementsValidation = await validateSupplements(suppléments);
-    if (!supplementsValidation.valid) {
-      return res.status(400).json({
-        success: false,
-        message: supplementsValidation.error
-      });
-    }
-
-    // Valider les activités
-    const activitiesValidation = await validateActivities(activites);
-    if (!activitiesValidation.valid) {
-      return res.status(400).json({
-        success: false,
-        message: activitiesValidation.error
-      });
-    }
-
-    // Valider la remise
-    const discountValidation = validateDiscount(remise);
-    if (!discountValidation.valid) {
-      return res.status(400).json({
-        success: false,
-        message: discountValidation.error
-      });
-    }
-
-    // Calculer le prix total
-    const priceCalculation = await calculateReservationPrice({
-      roomId: chambreId,
-      checkInDate: dateEntree,
-      checkOutDate: dateSortie,
-      numberOfAdults: nombreAdultes,
-      numberOfChildren: nombreEnfants,
-      supplements: suppléments,
-      activities: activites,
-      discount: remise,
-      conventionId
-    });
-
-    const { totalPrice, subtotal, discountAmount, priceDetails } = priceCalculation;
 
     // Si une conventionId est spécifiée, vérifier que la chambre appartient à cette convention
     if (conventionId) {
@@ -150,8 +104,6 @@ exports.createReservation = async (req, res) => {
         });
       }
 
-      // Pour les conventions, le prix de la chambre est gratuit mais les suppléments et activités restent payants
-      // Le calcul a déjà été fait dans calculateReservationPrice
       statut = 'validee';
     } else {
       // Vérifier la disponibilité de la chambre (réservations normales)
@@ -222,7 +174,7 @@ exports.createReservation = async (req, res) => {
 
       // Calculer le montant total des paiements
       const totalPaiements = paiements ? paiements.reduce((sum, paiement) => sum + paiement.montant, 0) : 0;
-      statut = totalPaiements >= totalPrice ? 'validee' : 'en_cours';
+      statut = totalPaiements >= montantTotal ? 'validee' : 'en_cours';
     }
 
     // Gérer l'upload du fichier PDF si présent
@@ -277,7 +229,7 @@ exports.createReservation = async (req, res) => {
       numeroChambre,
       typeChambre,
       montantTotal,
-      montantRemise: discountAmount,
+      montantRemise,
       montantPaye,
       methodePaiement,
       paiements: paiements,
@@ -289,9 +241,9 @@ exports.createReservation = async (req, res) => {
       receptionniste,
       preuvePaiement: preuvePaiementPath,
       conventionId: conventionId || null,
-      suppléments: supplementsValidation.supplements,
-      activites: activitiesValidation.activities,
-      remise: discountValidation.discount,
+      suppléments,
+      activites,
+      remise,
       typeReservation
     });
 
