@@ -3,6 +3,13 @@ const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs').promises;
 const PDFDocument = require('pdfkit');
+const { 
+  calculateReservationPrice, 
+  validateSupplements, 
+  validateActivities, 
+  validateDiscount 
+} = require('../utils/priceCalculator');
+
 
 // Créer une nouvelle réservation
 exports.createReservation = async (req, res) => {
