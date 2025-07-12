@@ -324,7 +324,7 @@ exports.getUserStats = async (req, res) => {
   }
 };
 
-// Désactiver un utilisateur
+// Désactiver/Réactiver un utilisateur
 exports.deactivateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -332,17 +332,82 @@ exports.deactivateUser = async (req, res) => {
 
     const user = await User.findByPk(id);
     if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Empêcher la désactivation de son propre compte
+    if (user.id === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous ne pouvez pas désactiver votre propre compte'
+      });
     }
 
     await user.update({ isActive });
 
-    const updatedUser = user.toJSON();
-    delete updatedUser.password;
+    // Ne pas renvoyer le mot de passe
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      isActive: user.isActive
+    };
 
-    res.json({ data: updatedUser });
+    res.json({
+      success: true,
+      message: `Utilisateur ${isActive ? 'activé' : 'désactivé'} avec succès`,
+      data: userResponse
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la désactivation de l\'utilisateur' });
+    console.error('Erreur lors de la désactivation de l\'utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la désactivation de l\'utilisateur'
+    });
+  }
+};
+
+// Supprimer un utilisateur
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Empêcher la suppression de son propre compte
+    if (user.id === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous ne pouvez pas supprimer votre propre compte'
+      });
+    }
+
+    // Supprimer l'utilisateur
+    await user.destroy();
+
+    res.json({
+      success: true,
+      message: 'Utilisateur supprimé avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la suppression de l\'utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la suppression de l\'utilisateur'
+    });
   }
 };
 

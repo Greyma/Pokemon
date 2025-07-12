@@ -13,7 +13,10 @@ router.get('/me', userController.getCurrentUser);
 router.get('/', hasRole(['MANAGER']), userController.getAllUsers);
 router.post('/', hasRole(['MANAGER']), userController.createUser);
 router.get('/stats', hasRole(['MANAGER']), userController.getUserStats);
+router.get('/:id', hasRole(['MANAGER']), userController.getUserById);
 router.put('/:id', hasRole(['MANAGER']), userController.updateUser);
 router.patch('/:id/status', hasRole(['MANAGER']), userController.deactivateUser);
+router.patch('/:id/password', hasRole(['MANAGER']), userController.changePassword);
+router.delete('/:id', hasRole(['MANAGER']), userController.deleteUser);
 
 module.exports = router; 
