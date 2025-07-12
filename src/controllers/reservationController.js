@@ -276,7 +276,7 @@ exports.createReservation = async (req, res) => {
       chambreId,
       numeroChambre,
       typeChambre,
-      montantTotal: totalPrice,
+      montantTotal,
       montantRemise: discountAmount,
       montantPaye,
       methodePaiement,
