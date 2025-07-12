@@ -9,6 +9,15 @@ const { jwtSecret, jwtExpiration } = require('../config/database');
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    
+    // Validation des données requises
+    if (!username || !password) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Nom d\'utilisateur et mot de passe requis'
+      });
+    }
+
     const user = await User.findOne({ where: { username } });
 
     if (!user || !(await user.validatePassword(password))) {
@@ -36,18 +45,29 @@ router.post('/login', async (req, res) => {
       { expiresIn: jwtExpiration }
     );
 
+    // Mettre à jour la dernière connexion
     user.lastLogin = new Date();
     await user.save();
 
+    // Retourner toutes les informations de l'utilisateur (sauf le mot de passe)
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      isActive: user.isActive,
+      lastLogin: user.lastLogin
+    };
+
     res.json({
       status: 'success',
+      message: 'Connexion réussie',
       data: {
         token,
-        user: {
-          id: user.id,
-          username: user.username,
-          role: user.role
-        }
+        user: userResponse
       }
     });
   } catch (error) {

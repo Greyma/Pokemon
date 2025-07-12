@@ -344,4 +344,32 @@ exports.deactivateUser = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Erreur lors de la désactivation de l\'utilisateur' });
   }
+};
+
+// Récupérer les informations de l'utilisateur connecté
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findByPk(userId, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des informations utilisateur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des informations utilisateur'
+    });
+  }
 }; 
