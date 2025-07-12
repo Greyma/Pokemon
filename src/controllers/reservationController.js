@@ -571,8 +571,6 @@ exports.addPayment = async (req, res) => {
 // Upload du justificatif de paiement
 exports.uploadPdf = async (req, res) => {
   try {
-    console.log('📁 Début de l\'upload PDF');
-
     // Vérifier le type de contenu
     if (!req.headers['content-type']?.includes('multipart/form-data')) {
       return res.status(400).json({
