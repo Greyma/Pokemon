@@ -56,17 +56,17 @@ const validateCreateConvention = [
     .withMessage('Le prix doit être un nombre positif'),
   
   body('chambresStandard')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 50 })
     .withMessage('Le nombre de chambres standard doit être entre 0 et 50'),
   
   body('chambresVIP')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 20 })
     .withMessage('Le nombre de chambres VIP doit être entre 0 et 20'),
   
   body('chambresSuite')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 10 })
     .withMessage('Le nombre de chambres suite doit être entre 0 et 10'),
   
@@ -77,32 +77,32 @@ const validateCreateConvention = [
     .withMessage('Le nombre d\'adultes maximum par chambre doit être entre 1 et 4'),
   
   body('email')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isEmail()
     .withMessage('Format d\'email invalide'),
   
   body('adresse')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ max: 500 })
     .withMessage('L\'adresse ne peut pas dépasser 500 caractères'),
   
   body('contactPrincipal')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ min: 2, max: 100 })
     .withMessage('Le contact principal doit contenir entre 2 et 100 caractères'),
   
   body('conditionsSpeciales')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ max: 1000 })
     .withMessage('Les conditions spéciales ne peuvent pas dépasser 1000 caractères'),
   
   body('description')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ max: 2000 })
     .withMessage('La description ne peut pas dépasser 2000 caractères'),
   
   body('notes')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ max: 1000 })
     .withMessage('Les notes ne peuvent pas dépasser 1000 caractères'),
   
@@ -125,87 +125,87 @@ const validateUpdateConvention = [
     .withMessage('ID de convention invalide'),
   
   body('numeroConvention')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ min: 3, max: 50 })
     .withMessage('Le numéro de convention doit contenir entre 3 et 50 caractères'),
   
   body('nomSociete')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ min: 2, max: 100 })
     .withMessage('Le nom de la société doit contenir entre 2 et 100 caractères'),
   
   body('telephone')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .matches(/^[\+]?[0-9\s\-\(\)]{8,20}$/)
     .withMessage('Format de téléphone invalide'),
   
   body('dateDebut')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Format de date invalide'),
   
   body('nombreJours')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 1, max: 365 })
     .withMessage('Le nombre de jours doit être entre 1 et 365'),
   
   body('prixConvention')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isFloat({ min: 0 })
     .withMessage('Le prix doit être un nombre positif'),
   
   body('chambresStandard')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 50 })
     .withMessage('Le nombre de chambres standard doit être entre 0 et 50'),
   
   body('chambresVIP')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 20 })
     .withMessage('Le nombre de chambres VIP doit être entre 0 et 20'),
   
   body('chambresSuite')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 10 })
     .withMessage('Le nombre de chambres suite doit être entre 0 et 10'),
   
   body('nombreAdultesMaxParChambre')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 1, max: 4 })
     .withMessage('Le nombre d\'adultes maximum par chambre doit être entre 1 et 4'),
   
   body('email')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isEmail()
     .withMessage('Format d\'email invalide'),
   
   body('adresse')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ max: 500 })
     .withMessage('L\'adresse ne peut pas dépasser 500 caractères'),
   
   body('contactPrincipal')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ min: 2, max: 100 })
     .withMessage('Le contact principal doit contenir entre 2 et 100 caractères'),
   
   body('conditionsSpeciales')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ max: 1000 })
     .withMessage('Les conditions spéciales ne peuvent pas dépasser 1000 caractères'),
   
   body('description')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ max: 2000 })
     .withMessage('La description ne peut pas dépasser 2000 caractères'),
   
   body('statut')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isIn(['ACTIVE', 'INACTIVE', 'EXPIRED'])
     .withMessage('Statut invalide'),
   
   body('notes')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ max: 1000 })
     .withMessage('Les notes ne peuvent pas dépasser 1000 caractères'),
   
@@ -215,32 +215,32 @@ const validateUpdateConvention = [
 // Validation pour les paramètres de requête
 const validateQueryParams = [
   query('page')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 1 })
     .withMessage('Le numéro de page doit être un entier positif'),
   
   query('limit')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 1, max: 100 })
     .withMessage('La limite doit être entre 1 et 100'),
   
   query('search')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isLength({ min: 2, max: 100 })
     .withMessage('La recherche doit contenir entre 2 et 100 caractères'),
   
   query('statut')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isIn(['ACTIVE', 'INACTIVE', 'EXPIRED'])
     .withMessage('Statut invalide'),
   
   query('dateDebut')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Format de date de début invalide'),
   
   query('dateFin')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Format de date de fin invalide'),
   
@@ -292,17 +292,17 @@ const validateVerificationDisponibilite = [
     .withMessage('Format de date invalide'),
   
   body('chambresStandard')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 50 })
     .withMessage('Le nombre de chambres standard doit être entre 0 et 50'),
   
   body('chambresVIP')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 20 })
     .withMessage('Le nombre de chambres VIP doit être entre 0 et 20'),
   
   body('chambresSuite')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 10 })
     .withMessage('Le nombre de chambres suite doit être entre 0 et 10'),
   
@@ -333,22 +333,22 @@ const validateRechercheDatesDisponibles = [
     .withMessage('Le nombre de jours doit être entre 1 et 365'),
   
   body('chambresStandard')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 50 })
     .withMessage('Le nombre de chambres standard doit être entre 0 et 50'),
   
   body('chambresVIP')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 20 })
     .withMessage('Le nombre de chambres VIP doit être entre 0 et 20'),
   
   body('chambresSuite')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 0, max: 10 })
     .withMessage('Le nombre de chambres suite doit être entre 0 et 10'),
   
   body('dateFinMax')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Format de date de fin maximale invalide'),
   
