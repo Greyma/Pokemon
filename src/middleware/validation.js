@@ -73,7 +73,7 @@ const validateCreateConvention = [
   body('nombreAdultesMaxParChambre')
     .notEmpty()
     .withMessage('Le nombre d\'adultes maximum par chambre est requis')
-    .isInt({ min: 1, max: 4 })
+    .isInt({ min: 1, max: 10 })
     .withMessage('Le nombre d\'adultes maximum par chambre doit être entre 1 et 4'),
   
   body('email')
@@ -171,7 +171,7 @@ const validateUpdateConvention = [
   
   body('nombreAdultesMaxParChambre')
     .optional({ nullable: true, checkFalsy: true })
-    .isInt({ min: 1, max: 4 })
+    .isInt({ min: 1, max: 10 })
     .withMessage('Le nombre d\'adultes maximum par chambre doit être entre 1 et 4'),
   
   body('email')
