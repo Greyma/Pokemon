@@ -85,7 +85,7 @@ const Convention = sequelize.define('Convention', {
     allowNull: false,
     validate: {
       min: 1,
-      max: 4
+      max: 10
     }
   },
   justificatifPath: {
