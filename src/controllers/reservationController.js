@@ -834,10 +834,40 @@ exports.getAvailableRooms = async (req, res) => {
 
     }
 
+    let availableRoomsWithFreeDays = [];
+    for (const room of availableRooms) {
+      // Chercher la prochaine réservation pour cette chambre après la date d'entrée
+      const nextReservation = await Reservation.findOne({
+        where: {
+          chambreId: room.id,
+          statut: { [Op.notIn]: ['annulee', 'terminee'] },
+          dateEntree: { [Op.gt]: startDate }
+        },
+        order: [['dateEntree', 'ASC']]
+      });
+      let dateFinLibre;
+      if (nextReservation) {
+        dateFinLibre = new Date(nextReservation.dateEntree);
+        if (dateFinLibre > endDate) dateFinLibre = endDate;
+      } else {
+        // Si aucune réservation prochaine, libre pendant 1 an
+        dateFinLibre = new Date(startDate);
+        dateFinLibre.setFullYear(dateFinLibre.getFullYear() + 1);
+      }
+      const nbJours = Math.ceil((dateFinLibre - startDate) / (1000 * 60 * 60 * 24));
+      availableRoomsWithFreeDays.push({
+        ...room,
+        nbJoursLibre: nbJours,
+        dateDebutLibre: startDate,
+        dateFinLibre: dateFinLibre
+      });
+    }
+    // Trier par nbJoursLibre croissant
+    availableRoomsWithFreeDays.sort((a, b) => a.nbJoursLibre - b.nbJoursLibre);
 
     res.json({
       success: true,
-      data: availableRooms,
+      data: availableRoomsWithFreeDays,
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des chambres disponibles:', error);
