@@ -689,7 +689,7 @@ exports.getAvailableRooms = async (req, res) => {
       },
       attributes: ['chambreId']
     });
-    const reservedRoomIds = reservedRooms.map(r => r.chambreId);
+    const reservedRoomIds = reservedRooms.map(r => parseInt(r.chambreId));
   
     // Trouver les chambres occupées par des conventions pour la période
     const conventionRooms = await Convention.findAll({
@@ -836,24 +836,25 @@ exports.getAvailableRooms = async (req, res) => {
 
     let availableRoomsWithFreeDays = [];
     for (const room of availableRooms) {
-      // Chercher la prochaine réservation pour cette chambre après la date d'entrée
+      // Chercher la prochaine réservation pour cette chambre après la période demandée
       const nextReservation = await Reservation.findOne({
         where: {
           chambreId: room.id,
           statut: { [Op.notIn]: ['annulee', 'terminee'] },
-          dateEntree: { [Op.gt]: startDate }
+          dateEntree: { [Op.gt]: endDate }
         },
         order: [['dateEntree', 'ASC']]
       });
       let dateFinLibre;
       if (nextReservation) {
         dateFinLibre = new Date(nextReservation.dateEntree);
-        if (dateFinLibre > endDate) dateFinLibre = endDate;
       } else {
         // Si aucune réservation prochaine, libre pendant 1 an
         dateFinLibre = new Date(startDate);
         dateFinLibre.setFullYear(dateFinLibre.getFullYear() + 1);
       }
+      // La chambre est libre au moins jusqu'à la fin de la période demandée
+      if (dateFinLibre > endDate) dateFinLibre = endDate;
       const nbJours = Math.ceil((dateFinLibre - startDate) / (1000 * 60 * 60 * 24));
       availableRoomsWithFreeDays.push({
         ...room,
