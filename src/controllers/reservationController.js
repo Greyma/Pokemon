@@ -848,13 +848,13 @@ exports.getAvailableRooms = async (req, res) => {
       let dateFinLibre;
       if (nextReservation) {
         dateFinLibre = new Date(nextReservation.dateEntree);
+        // Si la prochaine réservation est après la période demandée, limiter à la fin de la période
+        if (dateFinLibre > endDate) dateFinLibre = endDate;
       } else {
         // Si aucune réservation prochaine, libre pendant 1 an
         dateFinLibre = new Date(startDate);
         dateFinLibre.setFullYear(dateFinLibre.getFullYear() + 1);
       }
-      // La chambre est libre au moins jusqu'à la fin de la période demandée
-      if (dateFinLibre > endDate) dateFinLibre = endDate;
       const nbJours = Math.ceil((dateFinLibre - startDate) / (1000 * 60 * 60 * 24));
       availableRoomsWithFreeDays.push({
         ...room,
