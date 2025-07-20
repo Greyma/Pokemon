@@ -178,8 +178,10 @@ async function cleanDatabase() {
 
 // Exécuter l'initialisation si le fichier est appelé directement
 if (require.main === module) {
-  initializeDatabase();
-  cleanDatabase();
+  (async () => {
+    await initializeDatabase();
+    await cleanDatabase();
+  })();
 }
 
 module.exports = { initializeDatabase }; 
