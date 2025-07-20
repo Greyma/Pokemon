@@ -181,7 +181,12 @@ exports.createReservation = async (req, res) => {
 
       // Calculer le montant total des paiements
       const totalPaiements = paiements ? paiements.reduce((sum, paiement) => sum + paiement.montant, 0) : 0;
-      statut = totalPaiements >= montantTotal ? 'validee' : 'en_cours';
+      if (nomGarant) {
+        statut = 'validee';
+      }
+      else {
+        statut = totalPaiements >= montantTotal ? 'validee' : 'en_cours';
+      }
     }
 
     // Gérer l'upload du fichier PDF si présent
