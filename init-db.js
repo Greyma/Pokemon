@@ -1,5 +1,6 @@
 const {sequelize} = require('./src/config/database');
 const { User, Room, Reservation, Activity } = require('./src/models');
+const bcrypt = require('bcrypt');
 
 async function initializeDatabase() {
   try {
@@ -31,6 +32,9 @@ async function initializeDatabase() {
 
     const createdUsers = [];
     for (const userData of users) {
+      // Hacher le mot de passe avant la création
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      userData.password = hashedPassword;
       const user = await User.create(userData);
       createdUsers.push(user);
       console.log(`Utilisateur créé: ${user.username} (ID: ${user.id})`);
