@@ -37,103 +37,103 @@ async function initializeDatabase() {
     }
     console.log('Utilisateurs de test créés');
 
-    // Initialiser les chambres
-    const initializeRooms = async () => {
-      const rooms = [];
+  //   // Initialiser les chambres
+  //   const initializeRooms = async () => {
+  //     const rooms = [];
       
-      // Chambres STANDARD (101-120)
-      for (let i = 101; i <= 120; i++) {
-        rooms.push({
-          number: i.toString(),
-          type: 'STANDARD',
-          basePrice: 5000,
-          extraPersonPrice: 1000,
-          childPrice: 500,
-          capacity: 2,
-          description: 'Chambre standard confortable',
-          isActive: true,
-          status: 'LIBRE'
-        });
-      }
+  //     // Chambres STANDARD (101-120)
+  //     for (let i = 101; i <= 120; i++) {
+  //       rooms.push({
+  //         number: i.toString(),
+  //         type: 'STANDARD',
+  //         basePrice: 5000,
+  //         extraPersonPrice: 1000,
+  //         childPrice: 500,
+  //         capacity: 2,
+  //         description: 'Chambre standard confortable',
+  //         isActive: true,
+  //         status: 'LIBRE'
+  //       });
+  //     }
       
-      // Chambres VIP (201-210)
-      for (let i = 201; i <= 210; i++) {
-        rooms.push({
-          number: i.toString(),
-          type: 'VIP',
-          basePrice: 8000,
-          extraPersonPrice: 1500,
-          childPrice: 800,
-          capacity: 3,
-          description: 'Chambre VIP avec services premium',
-          isActive: true,
-          status: 'LIBRE'
-        });
-      }
+  //     // Chambres VIP (201-210)
+  //     for (let i = 201; i <= 210; i++) {
+  //       rooms.push({
+  //         number: i.toString(),
+  //         type: 'VIP',
+  //         basePrice: 8000,
+  //         extraPersonPrice: 1500,
+  //         childPrice: 800,
+  //         capacity: 3,
+  //         description: 'Chambre VIP avec services premium',
+  //         isActive: true,
+  //         status: 'LIBRE'
+  //       });
+  //     }
       
-      // Chambres SUITE (301-305)
-      for (let i = 301; i <= 305; i++) {
-        rooms.push({
-          number: i.toString(),
-          type: 'SUITE',
-          basePrice: 12000,
-          extraPersonPrice: 2000,
-          childPrice: 1200,
-          capacity: 4,
-          description: 'Suite luxueuse avec vue panoramique',
-          isActive: true,
-          status: 'LIBRE'
-        });
-      }
+  //     // Chambres SUITE (301-305)
+  //     for (let i = 301; i <= 305; i++) {
+  //       rooms.push({
+  //         number: i.toString(),
+  //         type: 'SUITE',
+  //         basePrice: 12000,
+  //         extraPersonPrice: 2000,
+  //         childPrice: 1200,
+  //         capacity: 4,
+  //         description: 'Suite luxueuse avec vue panoramique',
+  //         isActive: true,
+  //         status: 'LIBRE'
+  //       });
+  //     }
       
-      return rooms;
-    };
+  //     return rooms;
+  //   };
 
-    const rooms = await initializeRooms();
-    await Room.bulkCreate(rooms);
-    console.log(`${rooms.length} chambres créées`);
+  //   const rooms = await initializeRooms();
+  //   await Room.bulkCreate(rooms);
+  //   console.log(`${rooms.length} chambres créées`);
 
-    // Créer quelques activités de test
-    const activities = [
-      {
-        nomActivite: 'Piscine',
-        prix: 1500,
-        description: 'Accès à la piscine avec serviettes incluses',
-        isActive: true
-      },
-      {
-        nomActivite: 'Spa & Massage',
-        prix: 5000,
-        description: 'Séance de spa et massage relaxant',
-        isActive: true
-      },
-      {
-        nomActivite: 'Restaurant',
-        prix: 2500,
-        description: 'Repas au restaurant de l\'hôtel',
-        isActive: true
-      }
-    ];
+  //   // Créer quelques activités de test
+  //   const activities = [
+  //     {
+  //       nomActivite: 'Piscine',
+  //       prix: 1500,
+  //       description: 'Accès à la piscine avec serviettes incluses',
+  //       isActive: true
+  //     },
+  //     {
+  //       nomActivite: 'Spa & Massage',
+  //       prix: 5000,
+  //       description: 'Séance de spa et massage relaxant',
+  //       isActive: true
+  //     },
+  //     {
+  //       nomActivite: 'Restaurant',
+  //       prix: 2500,
+  //       description: 'Repas au restaurant de l\'hôtel',
+  //       isActive: true
+  //     }
+  //   ];
 
-    await Activity.bulkCreate(activities);
-    console.log(`${activities.length} activités créées`);
+  //   await Activity.bulkCreate(activities);
+  //   console.log(`${activities.length} activités créées`);
 
-    console.log('\n✅ Base de données initialisée avec succès !');
-    console.log('\n📋 Informations de connexion :');
-    console.log('👨‍💼 Manager:');
-    console.log('   Username: manager1');
-    console.log('   Password: manager123');
-    console.log('   ID:', createdUsers.find(u => u.role === 'MANAGER').id);
-    console.log('\n👩‍💼 Réceptionniste:');
-    console.log('   Username: receptionist1');
-    console.log('   Password: reception123');
-    console.log('   ID:', createdUsers.find(u => u.role === 'RECEPTIONIST').id);
+  //   console.log('\n✅ Base de données initialisée avec succès !');
+  //   console.log('\n📋 Informations de connexion :');
+  //   console.log('👨‍💼 Manager:');
+  //   console.log('   Username: manager1');
+  //   console.log('   Password: manager123');
+  //   console.log('   ID:', createdUsers.find(u => u.role === 'MANAGER').id);
+  //   console.log('\n👩‍💼 Réceptionniste:');
+  //   console.log('   Username: receptionist1');
+  //   console.log('   Password: reception123');
+  //   console.log('   ID:', createdUsers.find(u => u.role === 'RECEPTIONIST').id);
 
   } catch (error) {
     console.error('❌ Erreur lors de l\'initialisation de la base de données:', error);
-  } finally {
-    await sequelize.close();
-  }
+   } finally {
+     await sequelize.close();
+   }
 }
 
 async function cleanDatabase() {
