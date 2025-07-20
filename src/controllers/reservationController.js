@@ -111,7 +111,6 @@ exports.createReservation = async (req, res) => {
         });
       }
 
-      statut = 'validee';
     } else {
       // Vérifier la disponibilité de la chambre (réservations normales)
       const existingReservation = await Reservation.findOne({
@@ -179,15 +178,19 @@ exports.createReservation = async (req, res) => {
         });
       }
 
-      // Calculer le montant total des paiements
-      const totalPaiements = paiements ? paiements.reduce((sum, paiement) => sum + paiement.montant, 0) : 0;
-      if (nomGarant) {
-        statut = 'validee';
-      }
-      else {
-        statut = totalPaiements >= montantTotal ? 'validee' : 'en_cours';
-      }
     }
+
+
+    // Calculer le montant total des paiements
+    const totalPaiements = paiements ? paiements.reduce((sum, paiement) => sum + paiement.montant, 0) : 0;
+    if (nomGarant) {
+      statut = 'validee';
+    }
+    else {
+      statut = totalPaiements >= montantTotal ? 'validee' : 'en_cours';
+    }
+
+      
 
     // Gérer l'upload du fichier PDF si présent
     let preuvePaiementPath = null;
