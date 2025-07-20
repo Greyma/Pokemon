@@ -848,8 +848,6 @@ exports.getAvailableRooms = async (req, res) => {
       let dateFinLibre;
       if (nextReservation) {
         dateFinLibre = new Date(nextReservation.dateEntree);
-        // Si la prochaine réservation est après la période demandée, limiter à la fin de la période
-        if (dateFinLibre > endDate) dateFinLibre = endDate;
       } else {
         // Si aucune réservation prochaine, libre pendant 1 an
         dateFinLibre = new Date(startDate);
