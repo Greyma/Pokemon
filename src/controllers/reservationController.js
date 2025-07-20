@@ -27,7 +27,7 @@ exports.createReservation = async (req, res) => {
       chambreId,
       numeroChambre,
       typeChambre,
-      montantTotal,
+      montantTotal = 0,
       montantRemise = 0,
       suppléments = [],
       activites = [],
@@ -45,7 +45,7 @@ exports.createReservation = async (req, res) => {
 
     // Vérifier les données requises
     if (!reservationId || !nomClient || !email || !telephone || !adresse || !dateEntree || !dateSortie || 
-        !nombreAdultes || !chambreId || !numeroChambre || !typeChambre || !receptionnisteId || !receptionniste || !montantTotal) {
+        !nombreAdultes || !chambreId || !numeroChambre || !typeChambre || !receptionnisteId || !receptionniste) {
       return res.status(400).json({
         success: false,
         message: 'Données de réservation incomplètes'
