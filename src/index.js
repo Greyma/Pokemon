@@ -17,8 +17,13 @@ const fileUpload = require('express-fileupload');
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// Middleware CORS - Autoriser toutes les origines
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -155,6 +160,4 @@ module.exports = app;
 
 // Démarrer le serveur seulement si ce fichier est exécuté directement
 // En production avec Passenger, cette condition ne sera pas vraie
-if (require.main === module) {
-  startServer();
-} 
+startServer();
