@@ -1,6 +1,7 @@
 const {sequelize} = require('./src/config/database');
+const { Sequelize } = require('sequelize');
 const { User, Room, Reservation, Activity } = require('./src/models');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 async function initializeDatabase() {
   try {
@@ -135,8 +136,6 @@ async function initializeDatabase() {
 
   } catch (error) {
     console.error('❌ Erreur lors de l\'initialisation de la base de données:', error);
-   } finally {
-     await sequelize.close();
    }
 }
 
@@ -159,7 +158,7 @@ async function cleanDatabase() {
       attributes: ['username'],
       where: {
         username: {
-          [sequelize.Op.ne]: null
+          [Sequelize.Op.ne]: null
         }
       }
     });

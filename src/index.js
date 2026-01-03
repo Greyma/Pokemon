@@ -39,14 +39,6 @@ app.use('/api/reservations/upload-ccp', fileUpload({
 
 // Middleware de débogage pour les requêtes
 app.use((req, res, next) => {
-  console.log('📝 Requête reçue:', {
-    method: req.method,
-    path: req.path,
-    contentType: req.headers['content-type'],
-    hasFiles: !!req.files,
-    body: req.body,
-    headers: req.headers
-  });
   next();
 });
 // Routes

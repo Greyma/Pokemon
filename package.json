@@ -11,7 +11,6 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "jest",
-    "test:api": "node test.js",
     "init-db": "node init-db.js",
     "postinstall": "echo 'Installation terminée - Application prête pour la production'"
   },
