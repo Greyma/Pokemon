@@ -26,5 +26,6 @@ router.post('/upload/payment-proof', hasRole(['RECEPTIONIST', 'MANAGER']), reser
 
 // Routes nécessitant des droits de manager ou réceptionniste
 router.patch('/:id/status', hasRole(['MANAGER', 'RECEPTIONIST']), reservationController.updateStatus);
+router.delete('/:id', hasRole(['MANAGER', 'RECEPTIONIST']), reservationController.deleteReservation);
 
 module.exports = router; 

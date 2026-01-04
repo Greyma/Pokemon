@@ -113,23 +113,19 @@ exports.createReservation = async (req, res) => {
 
     } else {
       // Vérifier la disponibilité de la chambre (réservations normales)
+      // Note: Une chambre est disponible le jour du check-out (12h) pour un nouveau check-in (13h)
+      // Donc on utilise < et > au lieu de <= et >= pour permettre les réservations le même jour
       const existingReservation = await Reservation.findOne({
         where: {
           chambreId,
-          [Op.or]: [
-            {
-              dateEntree: {
-                [Op.between]: [checkIn, checkOut]
-              }
-            },
-            {
-              dateSortie: {
-                [Op.between]: [checkIn, checkOut]
-              }
-            }
+          [Op.and]: [
+            // La réservation existante commence avant la fin de la nouvelle réservation
+            { dateEntree: { [Op.lt]: checkOut } },
+            // La réservation existante se termine après le début de la nouvelle réservation
+            { dateSortie: { [Op.gt]: checkIn } }
           ],
           statut: {
-            [Op.notIn]: ['annulee']
+            [Op.notIn]: ['annulee', 'terminee']
           }
         }
       });
@@ -145,19 +141,9 @@ exports.createReservation = async (req, res) => {
       const existingConvention = await Convention.findOne({
         where: {
           statut: 'ACTIVE',
-          [Op.or]: [
-            {
-              dateDebut: { [Op.between]: [checkIn, checkOut] }
-            },
-            {
-              dateFin: { [Op.between]: [checkIn, checkOut] }
-            },
-            {
-              [Op.and]: [
-                { dateDebut: { [Op.lte]: checkIn } },
-                { dateFin: { [Op.gte]: checkOut } }
-              ]
-            }
+          [Op.and]: [
+            { dateDebut: { [Op.lt]: checkOut } },
+            { dateFin: { [Op.gt]: checkIn } }
           ]
         },
         include: [
@@ -675,21 +661,16 @@ exports.getAvailableRooms = async (req, res) => {
 
   
     // Trouver les chambres réservées pour la période (réservations normales)
+    // Note: Une chambre est disponible le jour du check-out (12h) pour un nouveau check-in (13h)
+    // Donc on exclut les réservations dont la dateSortie = dateEntree demandée
     const reservedRooms = await Reservation.findAll({
       where: {
-        [Op.or]: [
-          {
-            dateEntree: { [Op.between]: [startDate, endDate] }
-          },
-          {
-            dateSortie: { [Op.between]: [startDate, endDate] }
-          },
-          {
-            [Op.and]: [
-              { dateEntree: { [Op.lte]: startDate } },
-              { dateSortie: { [Op.gte]: endDate } }
-            ]
-          }
+        [Op.and]: [
+          // La réservation existante commence avant la fin de la période demandée
+          { dateEntree: { [Op.lt]: endDate } },
+          // La réservation existante se termine après le début de la période demandée
+          // On utilise > au lieu de >= pour permettre check-out 12h / check-in 13h le même jour
+          { dateSortie: { [Op.gt]: startDate } }
         ],
         statut: {
           [Op.notIn]: ['annulee', 'terminee']
@@ -702,19 +683,11 @@ exports.getAvailableRooms = async (req, res) => {
     // Trouver les chambres occupées par des conventions pour la période
     const conventionRooms = await Convention.findAll({
       where: {
-        [Op.or]: [
-          {
-            dateDebut: { [Op.between]: [startDate, endDate] }
-          },
-          {
-            dateFin: { [Op.between]: [startDate, endDate] }
-          },
-          {
-            [Op.and]: [
-              { dateDebut: { [Op.lte]: startDate } },
-              { dateFin: { [Op.gte]: endDate } }
-            ]
-          }
+        [Op.and]: [
+          // La convention commence avant la fin de la période demandée
+          { dateDebut: { [Op.lt]: endDate } },
+          // La convention se termine après le début de la période demandée
+          { dateFin: { [Op.gt]: startDate } }
         ],
         statut: 'ACTIVE',
         // Exclure la convention actuelle si on recherche pour une convention
@@ -1326,6 +1299,45 @@ exports.getAvailableSupplements = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des suppléments disponibles'
+    });
+  }
+};
+
+// Supprimer une réservation
+exports.deleteReservation = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const reservation = await Reservation.findOne({
+      where: { reservationId: id }
+    });
+
+    if (!reservation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Réservation non trouvée'
+      });
+    }
+
+    // Vérifier si la réservation peut être supprimée (pas en cours ou terminée)
+    if (reservation.status === 'CHECKED_IN') {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de supprimer une réservation en cours'
+      });
+    }
+
+    await reservation.destroy();
+
+    res.json({
+      success: true,
+      message: 'Réservation supprimée avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la réservation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la suppression de la réservation'
     });
   }
 }; 
