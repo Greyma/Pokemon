@@ -142,13 +142,10 @@ async function startServer() {
 
     // En production avec Passenger, on n'écoute pas sur un port spécifique
     // Passenger gère automatiquement le port
-    if (process.env.NODE_ENV !== 'production' || !process.env.PASSENGER_APP_ENV) {
-      app.listen(PORT, () => {
+    app.listen(PORT, () => {
         console.log(`Serveur démarré sur le port ${PORT}`);
       });
-    } else {
-      console.log('Application démarrée en mode production avec Passenger');
-    }
+
   } catch (error) {
     console.error('Impossible de démarrer le serveur:', error);
     process.exit(1);
