@@ -419,6 +419,58 @@ exports.getReservationById = async (req, res) => {
   }
 };
 
+// Mettre à jour une réservation
+exports.updateReservation = async (req, res) => {
+  try {
+    const reservation = await Reservation.findByPk(req.params.id);
+
+    if (!reservation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Réservation non trouvée'
+      });
+    }
+
+    const allowedFields = [
+      'nomClient', 'email', 'telephone', 'adresse',
+      'dateEntree', 'dateSortie', 'nombreAdultes', 'nombreEnfants',
+      'nomGarant', 'remarques', 'methodePaiement'
+    ];
+
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    await reservation.update(updateData);
+
+    const updatedReservation = await Reservation.findByPk(req.params.id, {
+      include: [
+        {
+          model: Convention,
+          as: 'convention',
+          attributes: ['id', 'numeroConvention', 'nomSociete', 'dateDebut', 'dateFin', 'contactPrincipal'],
+          required: false
+        }
+      ]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: updatedReservation,
+      message: 'Réservation modifiée avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la modification de la réservation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la modification de la réservation'
+    });
+  }
+};
+
 // Mettre à jour le statut d'une réservation
 exports.updateStatus = async (req, res) => {
   try {

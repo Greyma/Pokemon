@@ -140,8 +140,6 @@ async function startServer() {
     await sequelize.sync(syncOptions);
     console.log('Modèles synchronisés avec la base de données.');
 
-    // En production avec Passenger, on n'écoute pas sur un port spécifique
-    // Passenger gère automatiquement le port
     app.listen(PORT, () => {
         console.log(`Serveur démarré sur le port ${PORT}`);
       });
@@ -155,6 +153,4 @@ async function startServer() {
 // Export l'application pour Passenger et les tests
 module.exports = app;
 
-// Démarrer le serveur seulement si ce fichier est exécuté directement
-// En production avec Passenger, cette condition ne sera pas vraie
 startServer();

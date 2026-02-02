@@ -20,6 +20,7 @@ router.post('/calculate-deposit', reservationController.calculateDeposit);
 
 // Routes accessibles aux réceptionnistes et managers
 router.post('/', hasRole(['RECEPTIONIST', 'MANAGER']), reservationController.createReservation);
+router.put('/:id', hasRole(['RECEPTIONIST', 'MANAGER']), reservationController.updateReservation);
 router.patch('/:id/real-dates', hasRole(['RECEPTIONIST', 'MANAGER']), reservationController.updateRealDates);
 router.post('/:id/payments', hasRole(['RECEPTIONIST', 'MANAGER']), reservationController.addPayment);
 router.post('/upload/payment-proof', hasRole(['RECEPTIONIST', 'MANAGER']), reservationController.uploadPdf);

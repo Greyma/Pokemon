@@ -5,7 +5,7 @@ const { User, Reservation } = require('../models');
 const { Op } = require('sequelize');
 
 // Suivi quotidien des paiements
-router.get('/daily', authenticateToken, hasRole(['MANAGER']), async (req, res) => {
+router.get('/daily', authenticateToken, hasRole(['MANAGER', 'COMPTABLE']), async (req, res) => {
   try {
     const { date, method } = req.query;
     
@@ -41,7 +41,7 @@ router.get('/daily', authenticateToken, hasRole(['MANAGER']), async (req, res) =
 });
 
 // Suivi financier par employé
-router.get('/employee', authenticateToken, hasRole(['MANAGER']), async (req, res) => {
+router.get('/employee', authenticateToken, hasRole(['MANAGER', 'COMPTABLE']), async (req, res) => {
   try {
     const { username, date } = req.query;
     
@@ -85,7 +85,7 @@ router.get('/employee', authenticateToken, hasRole(['MANAGER']), async (req, res
 });
 
 // Suivi financier par réceptionniste
-router.get('/by-receptionist', authenticateToken, hasRole(['MANAGER']), async (req, res) => {
+router.get('/by-receptionist', authenticateToken, hasRole(['MANAGER', 'COMPTABLE']), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -127,7 +127,7 @@ router.get('/by-receptionist', authenticateToken, hasRole(['MANAGER']), async (r
 });
 
 // Suivi financier par période
-router.get('/by-period', authenticateToken, hasRole(['MANAGER']), async (req, res) => {
+router.get('/by-period', authenticateToken, hasRole(['MANAGER', 'COMPTABLE']), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     

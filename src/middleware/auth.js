@@ -99,7 +99,7 @@ exports.validateUserFromToken = (req, res, next) => {
   }
 
   // Vérifier que l'utilisateur a un rôle valide
-  if (!req.user.role || !['MANAGER', 'RECEPTIONIST'].includes(req.user.role)) {
+  if (!req.user.role || !['MANAGER', 'RECEPTIONIST', 'COMPTABLE'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Rôle utilisateur invalide'
